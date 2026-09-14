@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php" colors="true" failOnWarning="true" cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="unit"><directory>tests/Unit</directory></testsuite>
+        <!-- Needs a database + a bundle: TIGER_HEADLESS_DB_* and TIGER_HEADLESS_BUNDLE (see tests/Integration). -->
+        <testsuite name="integration"><directory>tests/Integration</directory></testsuite>
+    </testsuites>
+    <php>
+        <env name="TIGER_HEADLESS_DB_HOST" value="127.0.0.1"/>
+        <env name="TIGER_HEADLESS_DB_PORT" value="3306"/>
+        <env name="TIGER_HEADLESS_DB_NAME" value="tiger_headless_test"/>
+        <env name="TIGER_HEADLESS_DB_USER" value="root"/>
+        <env name="TIGER_HEADLESS_DB_PASS" value=""/>
+    </php>
+</phpunit>

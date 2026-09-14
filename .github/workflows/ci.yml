@@ -1,0 +1,136 @@
+name: CI
+
+# The headless installer is what a hosting panel runs unattended on someone else's server. These
+# checks are the only thing between an edit and that. The integration matrix is the acceptance list
+# from TIGER-124 run for real: MariaDB and MySQL 8, with and without symlink(), each failure mode
+# broken deliberately and checked for its named step and exit code.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Syntax check every PHP file
+        run: |
+          fail=0
+          while IFS= read -r f; do php -l "$f" >/dev/null || fail=1; done < <(find src bin tests -name '*.php' -o -name 'tiger-headless')
+          exit $fail
+
+  unit:
+    name: Unit on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpunit --testsuite unit
+
+  # A real install into a temp home from the latest published bundle, served and probed.
+  integration:
+    name: Install on ${{ matrix.db.name }}, symlink ${{ matrix.symlink }}
+    runs-on: ubuntu-latest
+    needs: [lint, unit]
+    strategy:
+      fail-fast: false
+      matrix:
+        symlink: ['on', 'off']
+        db:
+          - { name: mariadb, image: 'mariadb:10.11', port: 3306 }
+          - { name: mysql,   image: 'mysql:8.0',     port: 3306 }
+    services:
+      db:
+        image: ${{ matrix.db.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MARIADB_ROOT_PASSWORD: root
+          MYSQL_DATABASE: tiger_headless_test
+          MARIADB_DATABASE: tiger_headless_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, zip, mbstring, curl
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - name: Resolve the latest Tiger bundle
+        id: bundle
+        run: |
+          json=$(curl -sS -A tiger-headless-ci -H 'Accept: application/vnd.github+json' \
+                 https://api.github.com/repos/WebTigers/Tiger/releases?per_page=10)
+          url=$(printf '%s' "$json" | python3 -c '
+          import sys, json, re
+          for r in json.load(sys.stdin):
+              if r.get("draft"): continue
+              for a in r.get("assets", []):
+                  if re.match(r"^tiger-\d[\w.\-]*\.zip$", a["name"]) and "core-vendored" not in a["name"]:
+                      print(a["browser_download_url"]); raise SystemExit')
+          [ -n "$url" ] || { echo "no bundle found"; exit 1; }
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$url")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: tests/.bundle
+          key: bundle-${{ steps.bundle.outputs.name }}
+      - name: Download the bundle
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p tests/.bundle
+          curl -sSL -A tiger-headless-ci -o "tests/.bundle/${{ steps.bundle.outputs.name }}" "${{ steps.bundle.outputs.url }}"
+          curl -sSL -A tiger-headless-ci -o "tests/.bundle/${{ steps.bundle.outputs.name }}.sha256" "${{ steps.bundle.outputs.url }}.sha256"
+          (cd tests/.bundle && sha256sum -c "${{ steps.bundle.outputs.name }}.sha256")
+      - name: Integration suite
+        env:
+          TIGER_HEADLESS_BUNDLE: ${{ github.workspace }}/tests/.bundle/${{ steps.bundle.outputs.name }}
+          TIGER_HEADLESS_DB_HOST: 127.0.0.1
+          TIGER_HEADLESS_DB_PORT: ${{ matrix.db.port }}
+          TIGER_HEADLESS_DB_NAME: tiger_headless_test
+          TIGER_HEADLESS_DB_USER: root
+          TIGER_HEADLESS_DB_PASS: root
+          TIGER_HEADLESS_SYMLINK: ${{ matrix.symlink }}
+          TIGER_HEADLESS_NETWORK: ${{ matrix.symlink == 'on' && '1' || '' }}
+        run: vendor/bin/phpunit --testsuite integration
+
+  # Tiger_Headless_Version::VERSION must equal the tag, or the version-check on install lies.
+  version-matches-tag:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert Tiger_Headless_Version::VERSION == tag
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VER="$(grep -oE "VERSION\s*=\s*'[^']+'" src/Tiger/Headless/Version.php | grep -oE "'[^']+'" | tr -d "'")"
+          echo "tag=$TAG version=$VER"
+          [ "$TAG" = "$VER" ] || { echo "::error::Tiger_Headless_Version::VERSION ($VER) != tag ($TAG)"; exit 1; }

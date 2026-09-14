@@ -1,0 +1,9 @@
+[
+  {"tag_name": "v1.0.18", "draft": true,  "assets": [{"name": "tiger-1.0.18.zip", "browser_download_url": "https://x/draft.zip"}, {"name": "tiger-1.0.18.zip.sha256", "browser_download_url": "https://x/draft.sha"}]},
+  {"tag_name": "v1.0.17", "draft": false, "assets": [
+      {"name": "tiger-core-vendored-1.6.4.zip", "browser_download_url": "https://x/core.zip"},
+      {"name": "tiger-1.0.17.zip",              "browser_download_url": "https://x/tiger-1.0.17.zip"},
+      {"name": "tiger-1.0.17.zip.sha256",       "browser_download_url": "https://x/tiger-1.0.17.zip.sha256"}
+  ]},
+  {"tag_name": "v1.0.16", "draft": false, "assets": [{"name": "tiger-1.0.16.zip", "browser_download_url": "https://x/tiger-1.0.16.zip"}, {"name": "tiger-1.0.16.zip.sha256", "browser_download_url": "https://x/16.sha"}]}
+]

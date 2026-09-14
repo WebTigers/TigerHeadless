@@ -1,0 +1,87 @@
+#!/usr/bin/env php
+<?php
+/**
+ * SPDX-License-Identifier: BSD-3-Clause
+ * Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+ *
+ * tiger-headless — install, upgrade, back up, restore or inspect a Tiger site with nobody at a
+ * browser. One spec in, one JSON document out, an honest exit code. No prompts, no HTML, no colour.
+ *
+ *   tiger-headless install  --spec=<file|->            [--verbose]
+ *   tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
+ *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
+ *   tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=...]
+ *   tiger-headless status   --app-root=<dir>
+ *
+ * Exit: 0 ok · 1 a step failed (error.step names it) · 2 invalid spec or usage.
+ * stdout carries ONLY the JSON result; --verbose streams step progress to stderr.
+ */
+require __DIR__ . '/../src/autoload.php';
+
+$argv  = $_SERVER['argv'];
+$verb  = $argv[1] ?? '';
+$flags = [];
+foreach (array_slice($argv, 2) as $a) {
+    if (preg_match('/^--([a-z][a-z0-9-]*)(?:=(.*))?$/s', $a, $m)) { $flags[$m[1]] = $m[2] ?? '1'; }
+}
+$verbose = !empty($flags['verbose']);
+$log     = $verbose ? static function ($line) { fwrite(STDERR, $line . "\n"); } : null;
+
+$usage = static function ($message) {
+    $r = new Tiger_Headless_Result('usage');
+    $r->fail('usage', $message);
+    fwrite(STDOUT, $r->toJson());
+    exit(Tiger_Headless_Result::EXIT_USAGE);
+};
+$emit = static function (Tiger_Headless_Result $r) {
+    fwrite(STDOUT, $r->toJson());
+    exit($r->exitCode());
+};
+$need = static function ($k) use ($flags, $usage) {
+    if (!isset($flags[$k]) || $flags[$k] === '') { $usage("--{$k} is required"); }
+    return $flags[$k];
+};
+$components = static function () use ($flags) {
+    return isset($flags['components']) ? array_values(array_filter(array_map('trim', explode(',', $flags['components'])))) : [];
+};
+
+switch ($verb) {
+    case 'install':
+        $src = $need('spec');
+        $json = $src === '-' ? stream_get_contents(STDIN) : (is_file($src) ? file_get_contents($src) : false);
+        if ($json === false) { $usage("cannot read spec {$src}"); }
+        try {
+            $spec = Tiger_Headless_Spec::fromJson($json);
+        } catch (Tiger_Headless_SpecException $e) {
+            $r = new Tiger_Headless_Result('install');
+            $r->fail('spec', $e->getMessage())->set('problems', $e->problems());
+            fwrite(STDOUT, $r->toJson());
+            exit(Tiger_Headless_Result::EXIT_USAGE);
+        }
+        $emit((new Tiger_Headless_Installer($spec, $log))->run());
+        // no break — exit() above
+
+    case 'upgrade':
+        $emit(Tiger_Headless_Verbs::upgrade($need('app-root'), (string) ($flags['version'] ?? '')));
+        // no break
+
+    case 'backup':
+        $emit(Tiger_Headless_Verbs::backup($need('app-root'), $components()));
+        // no break
+
+    case 'restore':
+        $emit(Tiger_Headless_Verbs::restore($need('app-root'), $need('archive'), $components()));
+        // no break
+
+    case 'status':
+        $emit(Tiger_Headless_Verbs::status($need('app-root')));
+        // no break
+
+    case 'version':
+    case '--version':
+        fwrite(STDOUT, json_encode(['ok' => true, 'verb' => 'version', 'version' => Tiger_Headless_Version::VERSION]) . "\n");
+        exit(0);
+
+    default:
+        $usage('usage: tiger-headless install|upgrade|backup|restore|status [--flags] (see README.md)');
+}
