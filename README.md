@@ -11,6 +11,7 @@ tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
 tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
 tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=…]
 tiger-headless status   --app-root=<dir>
+tiger-headless discover --root=<dir> [--depth=4] [--check-updates]
 ```
 
 No prompts, no HTML, no colour. `stdout` carries only the JSON result; `--verbose` streams step
@@ -69,6 +70,22 @@ A ledger at `<app_root>/var/headless/state.json` records each step. A re-run aft
 `"already_installed": true`. The ledger is bound to the database + paths of the spec, so an installed
 tree can never be silently repointed at a different database — that is refused with
 `error.step = "ledger"`.
+
+## Already-installed detection
+
+Two levels:
+
+- **Per target.** `install` recognises a Tiger that is already live at `app_root` — whoever installed
+  it (the web installer, Composer, or this tool with its ledger gone) — by the tree, `local.ini`, and a
+  database that has the schema and a founding org. Same database → it is **adopted**: the ledger is
+  written and the result says `already_installed: true, adopted: true`; nothing runs. A different
+  database → refused. A tree with the schema but no owner (a web install that died on the last screen)
+  resumes and finishes.
+- **Per host.** `discover --root=/home/cpuser` (or `/home`) walks a directory and reports every Tiger it
+  finds — app root, docroot (mapped from the front-controller shim), layout, version, whether it is a
+  live site, its database name — without booting any of them. `--check-updates` adds the latest
+  tiger-core version and an `update_available` flag per install. This is what a hosting panel's fleet
+  view is built on.
 
 ## The spec
 

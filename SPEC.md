@@ -56,6 +56,13 @@ credentials + minted secrets) is not web-reachable. The spec is **refused** if `
 exactly `paths.app_root + "/public"`; the bundle's own `public/index.php` serves the app and no shim
 is generated. The result reports `layout` so the caller knows which posture it got.
 
+## Adoption
+
+If `app_root` already holds a live Tiger on the **same** database — the schema is present and a
+founding org exists — the install is **adopted**: the ledger is written, nothing runs, and the result
+says `already_installed: true, adopted: true`. That covers a site the web installer or Composer put
+down. A live Tiger on a **different** database is refused at `requirements`.
+
 ## The fingerprint
 
 Two runs are "the same install" when `db.name`, `paths.app_root` and `paths.docroot` match. The

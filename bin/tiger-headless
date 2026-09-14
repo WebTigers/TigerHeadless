@@ -12,10 +12,17 @@
  *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
  *   tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=...]
  *   tiger-headless status   --app-root=<dir>
+ *   tiger-headless discover --root=<dir> [--depth=4] [--check-updates]
  *
  * Exit: 0 ok · 1 a step failed (error.step names it) · 2 invalid spec or usage.
  * stdout carries ONLY the JSON result; --verbose streams step progress to stderr.
  */
+// stdout is the contract: ONLY the JSON result goes there. PHP's own diagnostics — a deprecation
+// from a vendored library on a newer PHP, a warning from a flaky host — go to stderr, never into
+// the document a front-end is about to json_decode.
+ini_set('display_errors', 'stderr');
+error_reporting(E_ALL);
+
 require __DIR__ . '/../src/autoload.php';
 
 $argv  = $_SERVER['argv'];
@@ -77,11 +84,15 @@ switch ($verb) {
         $emit(Tiger_Headless_Verbs::status($need('app-root')));
         // no break
 
+    case 'discover':
+        $emit(Tiger_Headless_Verbs::discover($need('root'), (int) ($flags['depth'] ?? 4), !empty($flags['check-updates'])));
+        // no break
+
     case 'version':
     case '--version':
         fwrite(STDOUT, json_encode(['ok' => true, 'verb' => 'version', 'version' => Tiger_Headless_Version::VERSION]) . "\n");
         exit(0);
 
     default:
-        $usage('usage: tiger-headless install|upgrade|backup|restore|status [--flags] (see README.md)');
+        $usage('usage: tiger-headless install|upgrade|backup|restore|status|discover [--flags] (see README.md)');
 }

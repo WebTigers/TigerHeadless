@@ -5,6 +5,25 @@ SemVer.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-14
+
+### Added
+
+- **Adoption of existing installs.** A live Tiger at the app root — put down by the web installer,
+  Composer, or a run whose ledger is gone — now reads as `already_installed` (+ `adopted: true`) when
+  the spec names the same database; the ledger is written and nothing runs. Before, it skipped extract
+  and failed at the owner step. Detection is the tree + `local.ini` + a database holding the schema
+  and a founding org, checked with one PDO probe and no Tiger boot.
+- **`discover --root=<dir> [--depth] [--check-updates]`** — every Tiger under a directory with app
+  root, docroot (from the shim), layout, version, live state, database name, and optionally whether a
+  newer core exists. Boots nothing. The basis for a hosting panel's fleet view (TIGER-39).
+- `status` now reports the live probe (`installed`) separately from the ledger (`ledger`).
+
+### Fixed
+
+- **stdout is JSON only, always.** PHP's own diagnostics (a vendored library's deprecation on a newer
+  PHP) now go to stderr; a `curl_close()` deprecation on PHP 8.5 had landed in the result document.
+
 ## [0.1.0] — 2026-09-14
 
 First release (TIGER-124).

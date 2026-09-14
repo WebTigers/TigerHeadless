@@ -20,7 +20,9 @@ class Tiger_Headless_Verbs
         $state = new Tiger_Headless_State($appRoot);
         $r->set('version', Tiger_Headless_App::version($appRoot));
         $r->set('layout', $state->layout() ?: null);
-        $r->set('installed', $state->installed());
+        $live = Tiger_Headless_Detect::probe($appRoot);
+        $r->set('installed', $live['installed'] === true || $state->installed());
+        $r->set('ledger', $state->exists());
         $r->set('app_root', $appRoot);
         $ini = $appRoot . '/application/configs/local.ini';
         $r->set('configured', is_file($ini) && Tiger_Headless_Files::iniValue((string) file_get_contents($ini), 'tiger.db.dbname') !== '');
@@ -36,6 +38,32 @@ class Tiger_Headless_Verbs
         } catch (Throwable $e) {
             $r->set('database', 'error: ' . $e->getMessage());
         }
+        return $r->succeed();
+    }
+
+    /**
+     * Every Tiger under a directory — a cPanel home, /home, a whole server — with version, layout,
+     * docroot, whether it is a live site, and (with $checkUpdates) whether a newer core exists. What
+     * a hosting panel's fleet view is built on. Boots nothing; one PDO probe per install.
+     */
+    public static function discover($root, $depth = 4, $checkUpdates = false)
+    {
+        $r = new Tiger_Headless_Result('discover');
+        $root = rtrim((string) $root, '/');
+        if (!is_dir($root)) { return $r->fail('discover', "{$root} is not a directory."); }
+        $installs = Tiger_Headless_Detect::discover($root, $depth);
+        $latest = null;
+        if ($checkUpdates) {
+            list($body, $code) = Tiger_Headless_Http::get('https://api.github.com/repos/WebTigers/TigerCore/releases/latest', 'application/vnd.github+json');
+            $d = ($body !== null && $code < 400) ? json_decode($body, true) : null;
+            $latest = is_array($d) && !empty($d['tag_name']) ? ltrim((string) $d['tag_name'], 'v') : null;
+        }
+        foreach ($installs as &$i) {
+            $i['latest'] = $latest;
+            $i['update_available'] = ($latest !== null && $i['version'] !== '') ? version_compare($i['version'], $latest, '<') : null;
+        }
+        unset($i);
+        $r->set('root', $root)->set('count', count($installs))->set('installs', $installs);
         return $r->succeed();
     }
 

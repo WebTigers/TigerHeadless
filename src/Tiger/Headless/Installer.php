@@ -48,6 +48,22 @@ class Tiger_Headless_Installer
     /** @return Tiger_Headless_Result */
     public function run()
     {
+        // A Tiger that is already live here — put down by the web installer, Composer, or a run of
+        // this tool whose ledger is gone — is "already installed", not a half-install to finish.
+        // Adopt it: write the ledger and report, exactly as a re-run after our own success would.
+        if (!$this->_state->installed()) {
+            $live = Tiger_Headless_Detect::probe($this->_appRoot);
+            if ($live['installed'] === true && strcasecmp($live['db']['name'], $this->_spec->get('db.name')) === 0) {
+                $this->_state->bind($this->_spec->fingerprint())->setVersion($live['version'])
+                    ->setLayout($this->_spec->get('layout'))->markStep('adopted', 'ok', 'live install found (' . $live['db']['name'] . ')')
+                    ->markInstalled()->save();
+                $r = new Tiger_Headless_Result('install');
+                $r->alreadyInstalled($live['version'], $this->_spec->get('layout'))->set('adopted', true);
+                $r->set('admin_url', $this->_spec->get('site.url') . '/admin');
+                return $r;
+            }
+        }
+
         $p = new Tiger_Headless_Pipeline($this->_state, $this->_log);
         $p->add('requirements', [$this, 'stepRequirements'], true)
           ->add('fetch',        [$this, 'stepFetch'])

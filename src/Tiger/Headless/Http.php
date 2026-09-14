@@ -34,7 +34,6 @@ class Tiger_Headless_Http
             ]);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
             return $body === false ? [null, 0] : [(string) $body, $code];
         }
         if (ini_get('allow_url_fopen')) {
@@ -67,7 +66,6 @@ class Tiger_Headless_Http
             ]);
             $ok   = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
             fclose($fp);
             clearstatcache(true, $dest);
             return $ok !== false && $code < 400 && filesize($dest) > 0;

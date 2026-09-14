@@ -272,6 +272,51 @@ final class InstallTest extends TestCase
         $this->assertStringNotContainsString('tiger-headless', (string) file_get_contents($home . '/tiger-app/public/index.php'), 'no generated shim in this layout');
     }
 
+    /** @depends testFullInstallAboveTheDocrootServesAWorkingSite */
+    public function testALiveTigerWithoutALedgerIsAdoptedNotReinstalled(): void
+    {
+        // A site the web installer (or Composer) put down has no ledger. Same database, same paths:
+        // it must read as already installed — and NOT fail at the owner step or make a second org.
+        $spec = $this->spec('alpha');
+        Tiger_Headless_Files::rrmdir($spec['paths']['app_root'] . '/var/headless');
+        $this->assertFileDoesNotExist($spec['paths']['app_root'] . '/var/headless/state.json');
+        $orgs = (int) self::pdo()->query('SELECT COUNT(*) FROM org WHERE deleted = 0')->fetchColumn();
+
+        [$exit, $r] = $this->cli($spec);
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertTrue($r['ok']);
+        $this->assertTrue($r['already_installed']);
+        $this->assertTrue($r['adopted']);
+        $this->assertSame([], $r['steps']);
+        $this->assertSame($orgs, (int) self::pdo()->query('SELECT COUNT(*) FROM org WHERE deleted = 0')->fetchColumn(), 'no second org');
+        $state = new Tiger_Headless_State($spec['paths']['app_root']);
+        $this->assertTrue($state->installed(), 'the ledger was written by adoption');
+        $this->assertSame($r['version'], $state->version());
+    }
+
+    /** @depends testFullInstallAboveTheDocrootServesAWorkingSite */
+    public function testDiscoverFindsTheInstallWithItsDocrootAndLiveState(): void
+    {
+        $spec = $this->spec('alpha');
+        $file = tempnam(sys_get_temp_dir(), 'dsc');
+        exec(PHP_BINARY . ' ' . escapeshellarg(__DIR__ . '/../../bin/tiger-headless') . ' discover --root=' . escapeshellarg(self::$home) . ' 2>' . escapeshellarg($file), $lines, $exit);
+        @unlink($file);
+        $this->assertSame(0, $exit);
+        $d = json_decode(implode("\n", $lines), true);
+        $this->assertIsArray($d);
+        $this->assertTrue($d['ok']);
+        $byApp = array_column($d['installs'], null, 'app_root');
+        $this->assertArrayHasKey($spec['paths']['app_root'], $byApp, 'alpha found');
+        $row = $byApp[$spec['paths']['app_root']];
+        $this->assertSame($spec['paths']['docroot'], $row['docroot']);
+        $this->assertSame('above-docroot', $row['layout']);
+        $this->assertTrue($row['installed'], 'live: schema + org present');
+        $this->assertSame(self::$db['name'], $row['db']['name']);
+        $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+/', $row['version']);
+        // The deliberately broken 'badpw' tree (requirements failed, nothing extracted) is NOT an install.
+        $this->assertArrayNotHasKey(self::$home . '/badpw/tiger-app', $byApp);
+    }
+
     public function testDirectoryModulesThemeAndAgentHandshake(): void
     {
         if (getenv('TIGER_HEADLESS_NETWORK') !== '1') { $this->markTestSkipped('TIGER_HEADLESS_NETWORK=1 to install from the Directory'); }
