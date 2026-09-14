@@ -109,7 +109,10 @@ jobs:
           mkdir -p tests/.bundle
           curl -sSL -A tiger-headless-ci -o "tests/.bundle/${{ steps.bundle.outputs.name }}" "${{ steps.bundle.outputs.url }}"
           curl -sSL -A tiger-headless-ci -o "tests/.bundle/${{ steps.bundle.outputs.name }}.sha256" "${{ steps.bundle.outputs.url }}.sha256"
-          (cd tests/.bundle && sha256sum -c "${{ steps.bundle.outputs.name }}.sha256")
+          # The published digest file is "<hex>  <name>" but not always in sha256sum's exact format; compare the hex.
+          want=$(tr -d '\r' < "tests/.bundle/${{ steps.bundle.outputs.name }}.sha256" | awk '{print tolower($1)}')
+          have=$(sha256sum "tests/.bundle/${{ steps.bundle.outputs.name }}" | awk '{print $1}')
+          echo "want=$want have=$have"; [ -n "$want" ] && [ "$want" = "$have" ] || { echo "::error::bundle checksum mismatch"; exit 1; }
       - name: Integration suite
         env:
           TIGER_HEADLESS_BUNDLE: ${{ github.workspace }}/tests/.bundle/${{ steps.bundle.outputs.name }}
