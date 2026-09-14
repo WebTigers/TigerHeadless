@@ -18,9 +18,15 @@ SemVer.
   root, docroot (from the shim), layout, version, live state, database name, and optionally whether a
   newer core exists. Boots nothing. The basis for a hosting panel's fleet view (TIGER-39).
 - `status` now reports the live probe (`installed`) separately from the ledger (`ledger`).
+- `discover` carries a `summary` — live / unknown / `updates_available` / `latest` / a version
+  histogram — so a server manager reads the roll-up without counting rows.
 
 ### Fixed
 
+- **The app root is created as deep as needed.** The cPanel convention is
+  `/home/<user>/<domain>/tiger-app` and `<domain>/` does not exist before the first install; only one
+  level was being created, so a first install on a subdomain failed at `requirements`. The nearest
+  existing ancestor is what must be writable. The integration suite now installs in that shape.
 - **stdout is JSON only, always.** PHP's own diagnostics (a vendored library's deprecation on a newer
   PHP) now go to stderr; a `curl_close()` deprecation on PHP 8.5 had landed in the result document.
 

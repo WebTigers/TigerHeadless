@@ -70,6 +70,34 @@ final class DetectTest extends TestCase
         $this->assertSame('docroot', $b['layout']);
     }
 
+    /**
+     * The cPanel account-holder shape: Tiger on two subdomains of ONE account. cPanel puts subdomain
+     * docroots INSIDE public_html, and the account's main site (a WordPress here) has its own catch-all
+     * index.php above them. Each install must map to its own docroot; the neighbour must not be
+     * mistaken for a Tiger; scoping to the account finds exactly these two and nothing from other accounts.
+     */
+    public function testTwoSubdomainsInOneAccountBesideAForeignSite(): void
+    {
+        $home = $this->root . '/home/cpuser';
+        $this->tigerTree($home . '/app1.example.com/tiger-app', '1.7.0', 'cpuser_app1');
+        $this->tigerTree($home . '/app2.example.com/tiger-app', '1.6.4', 'cpuser_app2');
+        $this->shim($home . '/public_html/app1', $home . '/app1.example.com/tiger-app');
+        $this->shim($home . '/public_html/app2', $home . '/app2.example.com/tiger-app');
+        file_put_contents($home . '/public_html/index.php', '<?php /* WordPress */ require __DIR__ . "/wp-blog-header.php";');
+        // Another account on the same server — out of scope when the plugin runs as cpuser.
+        $this->tigerTree($this->root . '/home/other/tiger-app', '1.7.0', 'other_db');
+        $this->shim($this->root . '/home/other/public_html', $this->root . '/home/other/tiger-app');
+
+        $mine = Tiger_Headless_Detect::discover($home, 4);
+        $this->assertSame([$home . '/app1.example.com/tiger-app', $home . '/app2.example.com/tiger-app'], array_column($mine, 'app_root'));
+        $this->assertSame($home . '/public_html/app1', $mine[0]['docroot']);
+        $this->assertSame($home . '/public_html/app2', $mine[1]['docroot']);
+        $this->assertSame(['cpuser_app1', 'cpuser_app2'], array_column(array_column($mine, 'db'), 'name'));
+
+        $all = Tiger_Headless_Detect::discover($this->root . '/home', 4);
+        $this->assertCount(3, $all, 'the server manager sees every account');
+    }
+
     public function testDoesNotDescendIntoAnAppRootOrVendorOrSymlinks(): void
     {
         $app = $this->root . '/u/tiger-app';

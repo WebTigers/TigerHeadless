@@ -84,8 +84,13 @@ Two levels:
 - **Per host.** `discover --root=/home/cpuser` (or `/home`) walks a directory and reports every Tiger it
   finds — app root, docroot (mapped from the front-controller shim), layout, version, whether it is a
   live site, its database name — without booting any of them. `--check-updates` adds the latest
-  tiger-core version and an `update_available` flag per install. This is what a hosting panel's fleet
-  view is built on.
+  tiger-core version, an `update_available` flag per install, and a `summary` (live count,
+  `updates_available`, version histogram). Run it as the account user for one account, or as root over
+  `/home` for the whole server — the same command, a different root.
+
+Two subdomains in one cPanel account is the ordinary case: two specs, two databases, app roots at
+`/home/<user>/<subdomain>/tiger-app`, docroots at `public_html/<sub>`. The account's existing site and
+its `.htaccess` are never touched.
 
 ## The spec
 

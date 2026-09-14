@@ -107,18 +107,14 @@ class Tiger_Headless_Installer
             $problems[] = 'source.bundle does not exist: ' . $this->_spec->get('source.bundle');
         }
 
-        // Paths: the app root is created here (its parent must be writable); the docroot must exist.
+        // Paths: both are created here, as many levels as needed — the cPanel convention is
+        // /home/<user>/<domain>/tiger-app and <domain>/ does not exist until the first install
+        // (CPANEL.md §7a). What must be writable is the nearest ancestor that already exists.
         $app = $this->_appRoot;
-        if (!is_dir($app)) {
-            $parent = dirname($app);
-            if (!is_dir($parent) || !is_writable($parent)) { $problems[] = "cannot create app_root {$app}: parent is not writable"; }
-            elseif (!@mkdir($app, 0755, true))            { $problems[] = "cannot create app_root {$app}"; }
-        } elseif (!is_writable($app))                      { $problems[] = "app_root {$app} is not writable"; }
-
+        if ($p = self::_mkdirProblem($app, 'app_root')) { $problems[] = $p; }
         $doc = $this->_docroot;
         if ($this->_spec->get('layout') === Tiger_Headless_Spec::LAYOUT_ABOVE) {
-            if (!is_dir($doc) && !@mkdir($doc, 0755, true)) { $problems[] = "docroot {$doc} does not exist and cannot be created"; }
-            elseif (!is_writable($doc))                      { $problems[] = "docroot {$doc} is not writable"; }
+            if ($p = self::_mkdirProblem($doc, 'docroot')) { $problems[] = $p; }
         }
 
         // An existing tree configured for a different database is somebody else's site.
@@ -373,6 +369,16 @@ class Tiger_Headless_Installer
     }
 
     // ---------------------------------------------------------------------------------- helpers
+
+    /** Create a directory (recursively) or say precisely why it cannot be. '' when fine. */
+    protected static function _mkdirProblem($dir, $label)
+    {
+        if (is_dir($dir)) { return is_writable($dir) ? '' : "{$label} {$dir} is not writable"; }
+        $probe = $dir;
+        while ($probe !== '' && $probe !== '/' && !is_dir($probe)) { $probe = dirname($probe); }
+        if (!is_dir($probe) || !is_writable($probe)) { return "cannot create {$label} {$dir}: {$probe} is not writable"; }
+        return @mkdir($dir, 0755, true) ? '' : "cannot create {$label} {$dir}";
+    }
 
     /**
      * Install a Directory slug through Tiger's module installer (its own manifest/checksum/placement

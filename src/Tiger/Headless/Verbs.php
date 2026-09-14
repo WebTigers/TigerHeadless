@@ -63,7 +63,18 @@ class Tiger_Headless_Verbs
             $i['update_available'] = ($latest !== null && $i['version'] !== '') ? version_compare($i['version'], $latest, '<') : null;
         }
         unset($i);
-        $r->set('root', $root)->set('count', count($installs))->set('installs', $installs);
+        // The roll-up a server manager reads first: how many Tigers, how many are live sites, how
+        // many need an update, and which versions are in play — without counting rows themselves.
+        $versions = [];
+        foreach ($installs as $i) { if ($i['version'] !== '') { $versions[$i['version']] = ($versions[$i['version']] ?? 0) + 1; } }
+        uksort($versions, 'version_compare');
+        $r->set('root', $root)->set('count', count($installs))->set('summary', [
+            'live'              => count(array_filter($installs, static function ($i) { return $i['installed'] === true; })),
+            'unknown'           => count(array_filter($installs, static function ($i) { return $i['installed'] === null; })),
+            'updates_available' => $latest === null ? null : count(array_filter($installs, static function ($i) { return $i['update_available'] === true; })),
+            'latest'            => $latest,
+            'versions'          => $versions,
+        ])->set('installs', $installs);
         return $r->succeed();
     }
 

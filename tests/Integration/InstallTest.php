@@ -68,11 +68,13 @@ final class InstallTest extends TestCase
 
     private function spec(string $site, array $over = []): array
     {
+        // The cPanel convention (CPANEL.md §7a): /home/<user>/<domain>/tiger-app — and <domain>/ does
+        // NOT exist before the first install, so the installer must create more than one level.
         $home = self::$home . '/' . $site;
         @mkdir($home . '/public_html', 0755, true);
         return array_replace_recursive([
             'db'     => self::$db,
-            'paths'  => ['app_root' => $home . '/tiger-app', 'docroot' => $home . '/public_html'],
+            'paths'  => ['app_root' => $home . '/' . $site . '.test/tiger-app', 'docroot' => $home . '/public_html'],
             'site'   => ['url' => "https://{$site}.test", 'name' => ucfirst($site)],
             'admin'  => ['username' => 'owner', 'email' => "owner@{$site}.test", 'password' => 'Correct-Horse-Battery-9'],
             'source' => ['bundle' => self::$bundle, 'sha256' => hash_file('sha256', self::$bundle)],
@@ -213,7 +215,7 @@ final class InstallTest extends TestCase
         $ro = self::$home . '/ro';
         mkdir($ro, 0500);
         try {
-            $spec = $this->spec('rodir', ['paths' => ['app_root' => $ro . '/tiger-app']]);
+            $spec = $this->spec('rodir', ['paths' => ['app_root' => $ro . '/rodir.test/tiger-app']]);
             [$exit, $r] = $this->cli($spec);
             $this->assertSame(1, $exit);
             $this->assertSame('requirements', $r['error']['step']);
@@ -249,7 +251,7 @@ final class InstallTest extends TestCase
 
     public function testInvalidSpecExitsTwoWithoutTouchingTheHost(): void
     {
-        $spec = $this->spec('badspec', ['paths' => ['docroot' => self::$home . '/badspec/tiger-app/public']]);
+        $spec = $this->spec('badspec', ['paths' => ['docroot' => self::$home . '/badspec/badspec.test/tiger-app/public']]);
         [$exit, $r] = $this->cli($spec);
         $this->assertSame(2, $exit);
         $this->assertSame('spec', $r['error']['step']);
@@ -314,7 +316,7 @@ final class InstallTest extends TestCase
         $this->assertSame(self::$db['name'], $row['db']['name']);
         $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+/', $row['version']);
         // The deliberately broken 'badpw' tree (requirements failed, nothing extracted) is NOT an install.
-        $this->assertArrayNotHasKey(self::$home . '/badpw/tiger-app', $byApp);
+        $this->assertArrayNotHasKey(self::$home . '/badpw/badpw.test/tiger-app', $byApp);
     }
 
     public function testDirectoryModulesThemeAndAgentHandshake(): void
