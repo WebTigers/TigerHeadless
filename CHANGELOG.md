@@ -5,6 +5,15 @@ SemVer.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-14
+
+### Added
+
+- **`login --app-root=<dir> [--email=<user>]`** — mints a one-time, 2-minute, single-use sign-in link
+  for the site's founding admin (or a named user) via tiger-core ≥ 1.8.0's magic-link login and
+  returns its path; the caller (a hosting panel's "Log in" button) prefixes the host and redirects.
+  Older cores are refused with the version to update to.
+
 ## [0.4.0] — 2026-09-14
 
 Both found by the first one-click install through TigerWHM on a real cPanel account.

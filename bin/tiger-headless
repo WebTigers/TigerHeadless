@@ -13,6 +13,7 @@
  *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
  *   tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=...]
  *   tiger-headless status   --app-root=<dir>
+ *   tiger-headless login    --app-root=<dir> [--email=<user>]   (a one-time sign-in link for the site's admin)
  *   tiger-headless discover --root=<dir> [--depth=4] [--check-updates]
  *
  * Exit: 0 ok · 1 a step failed (error.step names it) · 2 invalid spec or usage.
@@ -100,6 +101,10 @@ switch ($verb) {
         $emit(Tiger_Headless_Verbs::status($need('app-root')));
         // no break
 
+    case 'login':
+        $emit(Tiger_Headless_Verbs::login($need('app-root'), (string) ($flags['email'] ?? '')));
+        // no break
+
     case 'discover':
         $emit(Tiger_Headless_Verbs::discover($need('root'), (int) ($flags['depth'] ?? 4), !empty($flags['check-updates'])));
         // no break
@@ -110,5 +115,5 @@ switch ($verb) {
         exit(0);
 
     default:
-        $usage('usage: tiger-headless install|check|upgrade|backup|restore|status|discover [--flags] (see README.md)');
+        $usage('usage: tiger-headless install|check|upgrade|backup|restore|status|login|discover [--flags] (see README.md)');
 }

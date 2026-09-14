@@ -115,6 +115,42 @@ class Tiger_Headless_Verbs
         }
     }
 
+    /**
+     * Mint a one-time sign-in link for a site's admin — the hosting panel's "Log in" button. Returns
+     * the PATH (the caller knows the host); 2 minutes, single-use, only the token's hash is stored.
+     * Needs tiger-core ≥ 1.8.0 (Tiger_Service_Authentication::issueMagicLink); older cores refuse.
+     *
+     * @param string $appRoot
+     * @param string $email  the user to sign in; blank = the founding admin (the oldest active user)
+     */
+    public static function login($appRoot, $email = '')
+    {
+        $r = new Tiger_Headless_Result('login');
+        $appRoot = rtrim((string) $appRoot, '/');
+        try {
+            Tiger_Headless_App::boot($appRoot);
+            if (!method_exists('Tiger_Service_Authentication', 'issueMagicLink')) {
+                return $r->fail('login', 'This site runs tiger-core ' . Tiger_Headless_App::version($appRoot) . '; magic-link login needs 1.8.0 or newer — update the site first.');
+            }
+            $users = new Tiger_Model_User();
+            $user  = null;
+            if ($email !== '') {
+                $user = $users->findByEmail((string) $email);
+            } else {
+                $db  = Zend_Db_Table_Abstract::getDefaultAdapter();
+                $row = $db->fetchRow($db->select()->from('user', ['user_id'])->where('deleted = 0')->where('status = ?', 'active')->order('created_at ASC')->limit(1));
+                $user = $row ? $users->findById((string) $row['user_id']) : null;
+            }
+            if (!$user) { return $r->fail('login', $email !== '' ? "No active user {$email} on this site." : 'This site has no active user to sign in as.'); }
+            $link = (new Tiger_Service_Authentication())->issueMagicLink((string) $user->user_id);
+            if (!$link) { return $r->fail('login', 'That user cannot sign in (inactive).'); }
+            $r->set('path', $link['path'])->set('expires_in', $link['expires_in'])->set('email', (string) $user->email)->set('user_id', (string) $user->user_id);
+            return $r->succeed();
+        } catch (Throwable $e) {
+            return $r->fail('login', $e->getMessage());
+        }
+    }
+
     /** A local backup archive of the given components (default: all). */
     public static function backup($appRoot, array $components = [])
     {

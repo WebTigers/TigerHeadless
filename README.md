@@ -12,6 +12,7 @@ tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
 tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
 tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=…]
 tiger-headless status   --app-root=<dir>
+tiger-headless login    --app-root=<dir> [--email=<user>]   (one-time sign-in link for the admin)
 tiger-headless discover --root=<dir> [--depth=4] [--check-updates]
 ```
 
