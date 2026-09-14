@@ -40,6 +40,7 @@ authority; this page describes it. Every problem with a spec is reported at once
 | `locale` | | `en` | Language code (`en`, `es`, …). Anything but `en` is written to `tiger.i18n.default`. |
 | `modules` | | `[]` | Directory slugs (the `WebTigers/Vendors` feed). **Free listings only.** Installed and activated in order. |
 | `theme` | | *(none)* | A Directory theme slug (e.g. `theme-grey-mist`). Installed and made the active theme. |
+| `config` | | `{}` | Extra `local.ini` keys, written at `configure` — a host's defaults (a mail relay, a module posture). Dotted keys, scalar values. `tiger.db.*`, `tiger.crypto.key` and `tiger.security.pepper` are the installer's and are refused. |
 | `agent` | | `false` | Mint an MCP credential for the owner and enable `/mcp` (the TIGER-90 connect handshake). The token is returned **once**, in `result.agent.token`. |
 | `source.version` | | *(latest)* | A `WebTigers/Tiger` release tag (`v1.0.17` or `1.0.17`). Empty = the newest release carrying a bundle. |
 | `source.bundle` | | | Absolute path to a local `tiger-<version>.zip` — skips the download (offline / air-gapped / a host that pre-fetched it). |

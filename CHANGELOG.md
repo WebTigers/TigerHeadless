@@ -5,6 +5,16 @@ SemVer.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-14
+
+### Added
+
+- **`check --spec=…`** — the requirements step alone (PHP, extensions, writable paths, a live database
+  connection), changing nothing; reports `existing` when a live Tiger is already at the app root. What a
+  panel runs before it shows a form the user cannot complete.
+- **`config` in the spec** — extra `local.ini` keys written at `configure` (a host's defaults: mail
+  relay, module posture). Installer-owned keys (`tiger.db.*`, the secrets) are refused.
+
 ## [0.2.0] — 2026-09-14
 
 ### Added

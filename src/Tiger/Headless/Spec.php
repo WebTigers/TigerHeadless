@@ -124,6 +124,20 @@ class Tiger_Headless_Spec
         if ($out['source']['bundle'] !== '' && $out['source']['bundle'][0] !== '/') { $errors[] = 'source.bundle must be an absolute path to a tiger-<version>.zip'; }
         if ($out['source']['sha256'] !== '' && !preg_match('/^[0-9a-f]{64}$/', $out['source']['sha256'])) { $errors[] = 'source.sha256 must be a 64-hex sha256'; }
 
+        // ---- config: extra local.ini keys (host defaults: mail relay, module posture, …) ---------------
+        $cfg = $spec['config'] ?? [];
+        if (!is_array($cfg)) { $errors[] = 'config must be an object of local.ini keys'; $cfg = []; }
+        $out['config'] = [];
+        foreach ($cfg as $k => $v) {
+            $k = (string) $k;
+            if (!preg_match('/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i', $k)) { $errors[] = "config: \"{$k}\" is not a dotted ini key"; continue; }
+            if (strpos($k, 'tiger.db.') === 0 || in_array($k, ['tiger.crypto.key', 'tiger.security.pepper'], true)) { $errors[] = "config: \"{$k}\" is owned by the installer and may not be set here"; continue; }
+            if (is_array($v) || is_object($v)) { $errors[] = "config: \"{$k}\" must be a scalar"; continue; }
+            $v = (string) (is_bool($v) ? (int) $v : $v);
+            if (strpos($v, '"') !== false || strpos($v, "\n") !== false) { $errors[] = "config: \"{$k}\" may not contain a double quote or a newline"; continue; }
+            $out['config'][$k] = $v;
+        }
+
         // ---- agent (TIGER-90 connect handshake) ------------------------------------------------------
         $out['agent'] = !empty($spec['agent']);
 

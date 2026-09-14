@@ -123,6 +123,20 @@ final class SpecTest extends TestCase
         $this->assertSame('***', $r['admin']['password']);
     }
 
+    public function testConfigMapAcceptsHostDefaultsAndRefusesInstallerOwnedKeys(): void
+    {
+        $s = new Tiger_Headless_Spec($this->valid(['config' => ['mail.transport' => 'smtp', 'mail.smtp.port' => 587, 'tiger.shield.mode' => true]]));
+        $this->assertSame(['mail.transport' => 'smtp', 'mail.smtp.port' => '587', 'tiger.shield.mode' => '1'], $s->get('config'));
+        foreach (['tiger.db.host' => 'x', 'tiger.crypto.key' => 'x', 'tiger.security.pepper' => 'x', 'notdotted' => 'x', 'a.b' => 'has"quote', 'a.c' => ['arr']] as $k => $v) {
+            try {
+                new Tiger_Headless_Spec($this->valid(['config' => [$k => $v]]));
+                $this->fail("config {$k} should be refused");
+            } catch (Tiger_Headless_SpecException $e) {
+                $this->assertStringContainsString($k, implode(' ', $e->problems()));
+            }
+        }
+    }
+
     public function testFromJsonRejectsNonObjects(): void
     {
         $this->expectException(Tiger_Headless_SpecException::class);

@@ -8,6 +8,7 @@
  * browser. One spec in, one JSON document out, an honest exit code. No prompts, no HTML, no colour.
  *
  *   tiger-headless install  --spec=<file|->            [--verbose]
+ *   tiger-headless check    --spec=<file|->            (requirements only; changes nothing)
  *   tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
  *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
  *   tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=...]
@@ -68,6 +69,21 @@ switch ($verb) {
         $emit((new Tiger_Headless_Installer($spec, $log))->run());
         // no break — exit() above
 
+    case 'check':
+        $src = $need('spec');
+        $json = $src === '-' ? stream_get_contents(STDIN) : (is_file($src) ? file_get_contents($src) : false);
+        if ($json === false) { $usage("cannot read spec {$src}"); }
+        try {
+            $spec = Tiger_Headless_Spec::fromJson($json);
+        } catch (Tiger_Headless_SpecException $e) {
+            $r = new Tiger_Headless_Result('check');
+            $r->fail('spec', $e->getMessage())->set('problems', $e->problems());
+            fwrite(STDOUT, $r->toJson());
+            exit(Tiger_Headless_Result::EXIT_USAGE);
+        }
+        $emit((new Tiger_Headless_Installer($spec, $log))->check());
+        // no break
+
     case 'upgrade':
         $emit(Tiger_Headless_Verbs::upgrade($need('app-root'), (string) ($flags['version'] ?? '')));
         // no break
@@ -94,5 +110,5 @@ switch ($verb) {
         exit(0);
 
     default:
-        $usage('usage: tiger-headless install|upgrade|backup|restore|status|discover [--flags] (see README.md)');
+        $usage('usage: tiger-headless install|check|upgrade|backup|restore|status|discover [--flags] (see README.md)');
 }

@@ -89,6 +89,30 @@ class Tiger_Headless_Installer
         return $result;
     }
 
+    /**
+     * The requirements step alone, against the spec, changing nothing — what a panel runs before it
+     * shows the user a form they cannot complete (PHP too old, no zip, the database refusing them).
+     * Creates the app root / docroot dirs it would need (empty dirs are harmless and prove writability).
+     *
+     * @return Tiger_Headless_Result
+     */
+    public function check()
+    {
+        $r = new Tiger_Headless_Result('check');
+        $live = Tiger_Headless_Detect::probe($this->_appRoot);
+        $r->set('existing', $live['installed'] === true ? ['version' => $live['version'], 'db' => $live['db']['name']] : null);
+        $t0 = microtime(true);
+        try {
+            $detail = $this->stepRequirements();
+        } catch (Throwable $e) {
+            $r->step('requirements', 'failed', $e->getMessage(), microtime(true) - $t0);
+            return $r->fail('requirements', $e->getMessage());
+        }
+        $r->step('requirements', 'ok', $detail, microtime(true) - $t0);
+        $r->set('symlink', function_exists('symlink'))->set('php', PHP_VERSION)->set('layout', $this->_spec->get('layout'));
+        return $r->succeed();
+    }
+
     // ------------------------------------------------------------------------------------ steps
 
     /** Everything the install needs, checked up front — including that the database accepts us. */
@@ -235,6 +259,7 @@ class Tiger_Headless_Installer
             'tiger.site.name'   => $this->_spec->get('site.name'),
         ];
         if ($this->_spec->get('locale') !== 'en') { $kv['tiger.i18n.default'] = $this->_spec->get('locale'); }
+        foreach ($this->_spec->get('config', []) as $k => $v) { $kv[$k] = $v; }   // host defaults; never tiger.db.* / secrets (the spec refuses those)
         if (!Tiger_Headless_Files::writeAtomic($ini, Tiger_Headless_Files::iniMerge($text, $kv), 0600)) {
             throw new RuntimeException("Could not write {$ini}.");
         }

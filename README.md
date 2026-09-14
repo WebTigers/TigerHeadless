@@ -7,6 +7,7 @@ provisioning script calls when there is nobody at a browser — the install auth
 
 ```
 tiger-headless install  --spec=<file|->  [--verbose]
+tiger-headless check    --spec=<file|->  (requirements only — changes nothing)
 tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
 tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
 tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=…]
