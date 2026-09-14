@@ -324,6 +324,8 @@ final class InstallTest extends TestCase
         if (getenv('TIGER_HEADLESS_NETWORK') !== '1') { $this->markTestSkipped('TIGER_HEADLESS_NETWORK=1 to install from the Directory'); }
         self::resetDb();
         $spec = $this->spec('full', ['modules' => ['docs'], 'theme' => 'theme-grey-mist', 'agent' => true, 'locale' => 'es']);
+        // cPanel writes this into a new subdomain's docroot BEFORE anything is installed.
+        file_put_contents($spec['paths']['docroot'] . '/.htaccess', "<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php81 .php .php8 .phtml\n</IfModule>\n");
         [$exit, $r] = $this->cli($spec);
         $this->assertSame(0, $exit, json_encode($r));
         $steps = array_column($r['steps'], 'detail', 'step');
@@ -340,10 +342,16 @@ final class InstallTest extends TestCase
         $this->assertSame(['docs', 'theme-grey-mist'], $pdo->query("SELECT slug FROM module WHERE active = 1 AND slug IN ('docs','theme-grey-mist') ORDER BY slug")->fetchAll(PDO::FETCH_COLUMN));
         $this->assertStringContainsString('tiger.i18n.default = "es"', (string) file_get_contents($spec['paths']['app_root'] . '/application/configs/local.ini'));
 
+        $ht = (string) file_get_contents($spec['paths']['docroot'] . '/.htaccess');
+        $this->assertStringContainsString('x-httpd-ea-php81', $ht, 'cPanel\'s handler block survives');
+        $this->assertStringContainsString('RewriteRule', $ht, 'and Tiger\'s front controller rules are in');
+        $this->assertDirectoryExists($spec['paths']['docroot'] . '/_greymist', 'the theme\'s asset base reaches the docroot');
         $this->serve($spec['paths']['docroot'], function ($base) {
             [$code, $body] = $this->http($base . '/');
             $this->assertSame(200, $code);
             $this->assertStringContainsString('/_greymist/css/grey-mist.css', $body, 'the installed theme is the one rendering');
+            [$css] = $this->http($base . '/_greymist/css/grey-mist.css');
+            $this->assertSame(200, $css, 'and its CSS actually SERVES from the docroot');
             [$docs] = $this->http($base . '/docs');
             $this->assertSame(200, $docs, 'the installed module routes');
         });

@@ -5,6 +5,20 @@ SemVer.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-14
+
+Both found by the first one-click install through TigerWHM on a real cPanel account.
+
+### Fixed
+
+- **`.htaccess` is merged, not skipped or clobbered.** cPanel writes a `.htaccess` (the domain's PHP
+  handler) into a new subdomain's docroot before anything is installed; `expose` only wrote Tiger's
+  rules when no file existed, so the front controller never landed and every route 404'd. Existing
+  content is kept and Tiger's block appended once under a marker (`mergeHtaccess()`).
+- **Every `public/_*` entry reaches the docroot** at the `assets` step — a theme's asset base above
+  all — linked or copied, so an installed theme's CSS serves on the first request. The integration
+  test now fetches the CSS rather than checking the HTML mentions it.
+
 ## [0.3.0] — 2026-09-14
 
 ### Added

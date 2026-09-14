@@ -111,6 +111,31 @@ final class ReleaseAndFilesTest extends TestCase
         }
     }
 
+    public function testHtaccessMergeKeepsCpanelsBlockAndIsIdempotent(): void
+    {
+        $dir = sys_get_temp_dir() . '/tiger-headless-ht-' . bin2hex(random_bytes(4)); mkdir($dir);
+        try {
+            file_put_contents($dir . '/tiger.htaccess', "RewriteEngine On\nRewriteRule . /index.php [L]\n");
+            // 1. nothing there → written as-is
+            $this->assertSame('written', Tiger_Headless_Installer::mergeHtaccess($dir . '/tiger.htaccess', $dir . '/a/.htaccess'));
+            $this->assertSame("RewriteEngine On\nRewriteRule . /index.php [L]\n", file_get_contents($dir . '/a/.htaccess'));
+            // 2. cPanel's handler block already there → kept, Tiger's appended under the marker
+            $cp = "<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php81 .php .php8 .phtml\n</IfModule>\n";
+            file_put_contents($dir . '/b.htaccess', $cp);
+            $this->assertSame('merged', Tiger_Headless_Installer::mergeHtaccess($dir . '/tiger.htaccess', $dir . '/b.htaccess'));
+            $out = file_get_contents($dir . '/b.htaccess');
+            $this->assertStringStartsWith($cp, $out, 'cPanel\'s PHP handler survives');
+            $this->assertStringContainsString(Tiger_Headless_Installer::HTACCESS_MARK, $out);
+            $this->assertStringContainsString('RewriteRule . /index.php [L]', $out);
+            // 3. a re-run changes nothing
+            $this->assertSame('already merged', Tiger_Headless_Installer::mergeHtaccess($dir . '/tiger.htaccess', $dir . '/b.htaccess'));
+            $this->assertSame($out, file_get_contents($dir . '/b.htaccess'));
+            $this->assertSame(1, substr_count($out, 'RewriteRule . /index.php'));
+        } finally {
+            Tiger_Headless_Files::rrmdir($dir);
+        }
+    }
+
     public function testUnder(): void
     {
         $this->assertTrue(Tiger_Headless_Files::under('/a/b/c', '/a/b'));

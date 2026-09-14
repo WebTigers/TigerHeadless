@@ -338,13 +338,17 @@ class Tiger_Headless_Installer
             return 'docroot layout — assets published under public/';
         }
         Tiger_Install::linkPublicAssets($this->_docroot, $this->_appRoot, 'puma');
+        // Every `_*` Tiger publishes under public/ must be reachable from the docroot — the theme's
+        // asset base (`_greymist`) above all. Core ≥ 1.7.1 mirrors them itself; do it here too so an
+        // older bundle gets the same result. Link where allowed, else copy.
         $mode = [];
-        foreach (['_media', '_code', '_modules'] as $pub) {
-            $target = $this->_appRoot . '/public/' . $pub;
-            $link   = $this->_docroot . '/' . $pub;
+        foreach (glob($this->_appRoot . '/public/_*') ?: [] as $target) {
+            $pub  = basename($target);
+            $link = $this->_docroot . '/' . $pub;
             if (!is_dir($target) || file_exists($link)) { continue; }
-            if (function_exists('symlink') && @symlink($target, $link)) { $mode[] = "{$pub} linked"; }
-            else { Tiger_Headless_Files::rcopy($target, $link); $mode[] = "{$pub} copied"; }
+            $real = is_link($target) ? (string) readlink($target) : $target;
+            if (function_exists('symlink') && @symlink($real, $link)) { $mode[] = "{$pub} linked"; }
+            else { Tiger_Headless_Files::rcopy($real, $link); $mode[] = "{$pub} copied"; }
         }
         return (Tiger_Install::assetsAreCopied($this->_docroot) ? 'assets copied' : 'assets linked') . ($mode ? ' (' . implode(', ', $mode) . ')' : '');
     }
@@ -387,13 +391,35 @@ class Tiger_Headless_Installer
         if (!Tiger_Headless_Files::writeAtomic($this->_docroot . '/index.php', $shim, 0644)) {
             throw new RuntimeException('Could not write ' . $this->_docroot . '/index.php');
         }
-        if (is_file($this->_appRoot . '/public/.htaccess') && !is_file($this->_docroot . '/.htaccess')) {
-            @copy($this->_appRoot . '/public/.htaccess', $this->_docroot . '/.htaccess');
-        }
-        return 'front controller written to ' . $this->_docroot . '/index.php';
+        $how = self::mergeHtaccess($this->_appRoot . '/public/.htaccess', $this->_docroot . '/.htaccess');
+        return 'front controller written to ' . $this->_docroot . '/index.php' . ($how !== '' ? "; .htaccess {$how}" : '');
     }
 
     // ---------------------------------------------------------------------------------- helpers
+
+    const HTACCESS_MARK = '# --- Tiger front controller (tiger-headless) ---';
+
+    /**
+     * Put Tiger's rewrite rules in the docroot WITHOUT losing what is already there. cPanel writes a
+     * `.htaccess` into a new subdomain's docroot before anything is installed — the block that pins
+     * the domain's PHP handler — and a naive copy either skips Tiger's rules (no front controller,
+     * every route 404s) or clobbers cPanel's (wrong PHP). Existing content stays; Tiger's block is
+     * appended once, under a marker, so a re-run is a no-op.
+     *
+     * @return string what happened: 'written' | 'merged' | 'already merged' | ''
+     */
+    public static function mergeHtaccess($tigerFile, $docrootFile)
+    {
+        if (!is_file($tigerFile)) { return ''; }
+        $rules = (string) file_get_contents($tigerFile);
+        if (!is_file($docrootFile)) {
+            return Tiger_Headless_Files::writeAtomic($docrootFile, $rules, 0644) ? 'written' : '';
+        }
+        $existing = (string) file_get_contents($docrootFile);
+        if (strpos($existing, self::HTACCESS_MARK) !== false || strpos($existing, 'Tiger_Application') !== false) { return 'already merged'; }
+        $merged = rtrim($existing, "\n") . "\n\n" . self::HTACCESS_MARK . "\n" . $rules . (substr($rules, -1) === "\n" ? '' : "\n");
+        return Tiger_Headless_Files::writeAtomic($docrootFile, $merged, 0644) ? 'merged' : '';
+    }
 
     /** Create a directory (recursively) or say precisely why it cannot be. '' when fine. */
     protected static function _mkdirProblem($dir, $label)
