@@ -114,6 +114,22 @@ class Tiger_Headless_Spec
         if ($theme !== '' && !preg_match('/^[a-z0-9][a-z0-9_-]*$/', $theme)) { $errors[] = 'theme must be a Directory slug (e.g. "theme-grey-mist")'; }
         $out['theme'] = $theme;
 
+        // ---- skills: Agent Skills to install + activate, each a SKILL.md folder in a public GitHub repo --
+        $sk = $spec['skills'] ?? [];
+        if (!is_array($sk)) { $errors[] = 'skills must be a list of {repo, path, ref?}'; $sk = []; }
+        $out['skills'] = []; $seen = [];
+        foreach ($sk as $i => $e) {
+            if (!is_array($e)) { $errors[] = "skills[{$i}] must be an object"; continue; }
+            $repo = trim((string) ($e['repo'] ?? '')); $path = trim((string) ($e['path'] ?? ''), '/'); $ref = trim((string) ($e['ref'] ?? 'main'));
+            if (!preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $repo)) { $errors[] = "skills[{$i}].repo must be owner/name"; continue; }
+            if ($path === '' || strpos($path, '..') !== false || !preg_match('#^[A-Za-z0-9_./-]+$#', $path)) { $errors[] = "skills[{$i}].path must be a folder path inside the repo"; continue; }
+            if (!preg_match('#^[A-Za-z0-9_./-]+$#', $ref)) { $errors[] = "skills[{$i}].ref is not a git ref"; continue; }
+            $k = strtolower($repo . '@' . $path);
+            if (isset($seen[$k])) { continue; }
+            $seen[$k] = true;
+            $out['skills'][] = ['repo' => $repo, 'path' => $path, 'ref' => $ref];
+        }
+
         // ---- source ----------------------------------------------------------------------------------
         $src = is_array($spec['source'] ?? null) ? $spec['source'] : [];
         $out['source'] = [

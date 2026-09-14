@@ -137,6 +137,23 @@ final class SpecTest extends TestCase
         }
     }
 
+    public function testSkillsAreValidatedAndDeduplicated(): void
+    {
+        $s = new Tiger_Headless_Spec($this->valid(['skills' => [
+            ['repo' => 'WebTigers/Skills', 'path' => 'skills/tiger-design'],
+            ['repo' => 'webtigers/skills', 'path' => '/skills/tiger-design/'],            // same skill, different case/slashes
+            ['repo' => 'ComposioHQ/awesome-claude-skills', 'path' => 'content-research-writer', 'ref' => 'master'],
+        ]]));
+        $this->assertSame([
+            ['repo' => 'WebTigers/Skills', 'path' => 'skills/tiger-design', 'ref' => 'main'],
+            ['repo' => 'ComposioHQ/awesome-claude-skills', 'path' => 'content-research-writer', 'ref' => 'master'],
+        ], $s->get('skills'));
+        foreach ([[['repo' => 'nope', 'path' => 'x']], [['repo' => 'a/b', 'path' => '../etc']], [['repo' => 'a/b', 'path' => 'x', 'ref' => 'bad ref']], ['notalist']] as $bad) {
+            try { new Tiger_Headless_Spec($this->valid(['skills' => $bad])); $this->fail('should be refused'); }
+            catch (Tiger_Headless_SpecException $e) { $this->assertStringContainsString('skills', implode(' ', $e->problems())); }
+        }
+    }
+
     public function testFromJsonRejectsNonObjects(): void
     {
         $this->expectException(Tiger_Headless_SpecException::class);

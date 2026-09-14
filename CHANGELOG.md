@@ -5,6 +5,15 @@ SemVer.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-14
+
+### Added
+
+- **`skills` in the spec** — a list of `{repo, path, ref?}` Agent Skill folders (a `SKILL.md` in any
+  public GitHub repo), installed + activated through Tiger's own skills store (`Tiger_Agent_Skills`)
+  at a new `skills` step after `theme`. One skill failing is reported, not fatal. The result carries
+  `skills.installed` / `skills.failed`.
+
 ## [0.5.0] — 2026-09-14
 
 ### Added

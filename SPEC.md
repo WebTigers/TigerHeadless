@@ -41,6 +41,7 @@ authority; this page describes it. Every problem with a spec is reported at once
 | `modules` | | `[]` | Directory slugs (the `WebTigers/Vendors` feed). **Free listings only.** Installed and activated in order. |
 | `theme` | | *(none)* | A Directory theme slug (e.g. `theme-grey-mist`). Installed and made the active theme. |
 | `config` | | `{}` | Extra `local.ini` keys, written at `configure` — a host's defaults (a mail relay, a module posture). Dotted keys, scalar values. `tiger.db.*`, `tiger.crypto.key` and `tiger.security.pepper` are the installer's and are refused. |
+| `skills` | | `[]` | Agent Skills to install + activate: `[{"repo": "WebTigers/Skills", "path": "skills/tiger-design", "ref": "main"}]` — each a folder holding a `SKILL.md` in a public GitHub repo. Deduplicated. A front-end usually expands *packs* from the [install catalog](https://github.com/WebTigers/TigerVendors/blob/main/install/catalog.json) into this list. |
 | `agent` | | `false` | Mint an MCP credential for the owner and enable `/mcp` (the TIGER-90 connect handshake). The token is returned **once**, in `result.agent.token`. |
 | `source.version` | | *(latest)* | A `WebTigers/Tiger` release tag (`v1.0.17` or `1.0.17`). Empty = the newest release carrying a bundle. |
 | `source.bundle` | | | Absolute path to a local `tiger-<version>.zip` — skips the download (offline / air-gapped / a host that pre-fetched it). |

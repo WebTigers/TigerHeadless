@@ -74,6 +74,7 @@ class Tiger_Headless_Installer
           ->add('owner',        [$this, 'stepOwner'])
           ->add('modules',      [$this, 'stepModules'])
           ->add('theme',        [$this, 'stepTheme'])
+          ->add('skills',       [$this, 'stepSkills'])
           ->add('assets',       [$this, 'stepAssets'])
           ->add('agent',        [$this, 'stepAgent'])
           ->add('expose',       [$this, 'stepExpose']);
@@ -327,6 +328,37 @@ class Tiger_Headless_Installer
         $how = $this->_installFromDirectory($slug);
         $this->_activateTheme($slug);
         return $slug . ' ' . $how . ', activated';
+    }
+
+    /**
+     * Install + activate the requested Agent Skills through Tiger's own store (Tiger_Agent_Skills):
+     * each is a SKILL.md folder in a public GitHub repo. One skill failing (a moved folder, a rate
+     * limit) is reported in the detail and does not fail the install — a site without one optional
+     * skill is still a site. Older cores without the skills store: skipped, said so.
+     */
+    public function stepSkills()
+    {
+        $skills = $this->_spec->get('skills', []);
+        if (!$skills) { return 'none requested'; }
+        Tiger_Headless_App::boot($this->_appRoot);
+        if (!class_exists('Tiger_Agent_Skills') || !method_exists('Tiger_Agent_Skills', 'install')) {
+            return 'skipped: this core has no skills store (tiger-core ' . Tiger_Headless_App::version($this->_appRoot) . ')';
+        }
+        $ok = []; $failed = [];
+        foreach ($skills as $e) {
+            $name   = basename($e['path']);
+            $source = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $e['repo']));
+            try {
+                $key = Tiger_Agent_Skills::install(['source' => $source, 'name' => $name, 'repo' => $e['repo'], 'ref' => $e['ref'], 'path' => $e['path'],
+                    'sourceLabel' => 'From github.com/' . $e['repo'], 'url' => 'https://github.com/' . $e['repo'] . '/tree/' . $e['ref'] . '/' . $e['path']]);
+                Tiger_Agent_Skills::setActive($key, true);
+                $ok[] = $name;
+            } catch (Throwable $ex) {
+                $failed[] = $name . ' (' . $ex->getMessage() . ')';
+            }
+        }
+        $this->_extra['skills'] = ['installed' => $ok, 'failed' => $failed];
+        return count($ok) . ' installed' . ($failed ? '; failed: ' . implode(', ', $failed) : '') . ($ok ? ' — ' . implode(', ', $ok) : '');
     }
 
     /** Docroot asset links (copied where symlink() is unavailable) — above-docroot layout only. */
