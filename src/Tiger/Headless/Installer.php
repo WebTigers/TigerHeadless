@@ -497,22 +497,32 @@ class Tiger_Headless_Installer
      * Make sure a docroot's .htaccess passes the Authorization header through to PHP. Apache drops
      * it for CGI/FastCGI/PHP-FPM, and every Bearer-token path in Tiger (/api tokens, /mcp for agents)
      * silently degrades to a guest without it. The skeleton's public/.htaccess carries this from
-     * 1.0.21; this puts it into docroots written by earlier bundles, at upgrade time. PREPENDED: the
-     * rewrite fallback must run before a front-controller rule ends processing with [L]; CGIPassAuth
-     * is a directive and does not care. Idempotent.
+     * 1.0.22; this puts it into docroots written by earlier bundles, at upgrade time. PREPENDED: the
+     * rule must run before a front-controller rule ends processing with [L]. mod_rewrite ONLY —
+     * `CGIPassAuth On` needs AllowOverride AuthConfig and is a hard 500 on a FileInfo-only vhost
+     * (1.2.0 / skeleton 1.0.21 shipped it; a file carrying it is repaired here). Idempotent.
      *
-     * @return string 'added' | 'present' | '' (no such file — nothing to route through)
+     * @return string 'added' | 'repaired' | 'present' | '' (no such file — nothing to route through)
      */
     public static function ensureAuthPassthrough($htaccess)
     {
         if (!is_file($htaccess)) { return ''; }
         $existing = (string) file_get_contents($htaccess);
-        if (strpos($existing, 'CGIPassAuth') !== false || strpos($existing, self::AUTH_MARK) !== false) { return 'present'; }
-        $block = self::AUTH_MARK . "\n"
-            . "<IfModule mod_version.c>\n    <IfVersion >= 2.4.13>\n        CGIPassAuth On\n    </IfVersion>\n</IfModule>\n"
-            . "<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteCond %{HTTP:Authorization} .\n    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n</IfModule>\n"
-            . "# --- end Tiger Authorization block ---\n\n";
-        return Tiger_Headless_Files::writeAtomic($htaccess, $block . $existing, 0644) ? 'added' : '';
+        $repaired = false;
+        if (strpos($existing, 'CGIPassAuth') !== false) {
+            $existing = (string) preg_replace('#[ \t]*<IfModule mod_version\.c>\s*<IfVersion[^>]*>\s*CGIPassAuth On\s*</IfVersion>\s*</IfModule>[ \t]*\n?#', '', $existing);
+            $existing = (string) preg_replace('#^[ \t]*CGIPassAuth\s+On[ \t]*\n?#m', '', $existing);   // a bare one, from anywhere else
+            $repaired = true;
+        }
+        if (strpos($existing, 'E=HTTP_AUTHORIZATION') === false) {
+            $block = self::AUTH_MARK . "\n"
+                . "<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteCond %{HTTP:Authorization} .\n    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n</IfModule>\n"
+                . "# --- end Tiger Authorization block ---\n\n";
+            $existing = $block . $existing;
+            return Tiger_Headless_Files::writeAtomic($htaccess, $existing, 0644) ? ($repaired ? 'repaired' : 'added') : '';
+        }
+        if ($repaired) { return Tiger_Headless_Files::writeAtomic($htaccess, $existing, 0644) ? 'repaired' : ''; }
+        return 'present';
     }
 
     /** Create a directory (recursively) or say precisely why it cannot be. '' when fine. */

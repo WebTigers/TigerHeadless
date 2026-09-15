@@ -173,13 +173,23 @@ final class ReleaseAndFilesTest extends TestCase
         file_put_contents($f, "# cPanel handler\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule ^.*$ index.php [NC,L]\n</IfModule>\n");
         $this->assertSame('added', Tiger_Headless_Installer::ensureAuthPassthrough($f));
         $s = (string) file_get_contents($f);
-        $this->assertStringContainsString('CGIPassAuth On', $s);
+        $this->assertStringNotContainsString('CGIPassAuth', $s, 'AuthConfig-context directive: a 500 on a FileInfo-only vhost — never written');
         $this->assertLessThan(strpos($s, 'index.php [NC,L]'), strpos($s, 'E=HTTP_AUTHORIZATION'), 'the env rule runs BEFORE the front controller ends processing');
         $this->assertStringEndsWith("index.php [NC,L]\n</IfModule>\n", $s, 'the existing rules are untouched');
         $this->assertSame('present', Tiger_Headless_Installer::ensureAuthPassthrough($f));
-        $this->assertSame(1, substr_count((string) file_get_contents($f), 'CGIPassAuth'), 'idempotent');
-        // a file that already carries the skeleton's own directive is left alone
-        file_put_contents($f, "<IfVersion >= 2.4.13>\nCGIPassAuth On\n</IfVersion>\n");
+        $this->assertSame(1, substr_count((string) file_get_contents($f), 'E=HTTP_AUTHORIZATION'), 'idempotent');
+        // a file carrying the 1.2.0 / skeleton-1.0.21 directive is REPAIRED: directive gone, rewrite kept/added
+        file_put_contents($f, Tiger_Headless_Installer::AUTH_MARK . "\n<IfModule mod_version.c>\n    <IfVersion >= 2.4.13>\n        CGIPassAuth On\n    </IfVersion>\n</IfModule>\n<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteCond %{HTTP:Authorization} .\n    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n</IfModule>\n# --- end Tiger Authorization block ---\n\n# rest\n");
+        $this->assertSame('repaired', Tiger_Headless_Installer::ensureAuthPassthrough($f));
+        $s = (string) file_get_contents($f);
+        $this->assertStringNotContainsString('CGIPassAuth', $s);
+        $this->assertStringNotContainsString('mod_version', $s);
+        $this->assertSame(1, substr_count($s, 'E=HTTP_AUTHORIZATION'));
+        $this->assertStringEndsWith("# rest\n", $s);
+        // the skeleton 1.0.21 shape (directive at the top, rewrite line inside the main block)
+        file_put_contents($f, "<IfModule mod_version.c>\n    <IfVersion >= 2.4.13>\n        CGIPassAuth On\n    </IfVersion>\n</IfModule>\n\n<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteCond %{HTTP:Authorization} .\n    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n    RewriteRule ^.*$ index.php [NC,L]\n</IfModule>\n");
+        $this->assertSame('repaired', Tiger_Headless_Installer::ensureAuthPassthrough($f));
+        $this->assertStringNotContainsString('CGIPassAuth', (string) file_get_contents($f));
         $this->assertSame('present', Tiger_Headless_Installer::ensureAuthPassthrough($f));
         Tiger_Headless_Files::rrmdir($dir);
     }

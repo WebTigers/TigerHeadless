@@ -3,6 +3,16 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.2.1] — 2026-09-15
+
+### Fixed
+
+- **1.2.0's pass-through block 500'd any site whose vhost grants `AllowOverride FileInfo` only** —
+  `CGIPassAuth On` is an AuthConfig-context directive. The block is now mod_rewrite only (the
+  front controller already needs FileInfo), which delivers the header under PHP-FPM on its own;
+  `ensureAuthPassthrough()` also REPAIRS a `.htaccess` carrying the 1.2.0 / skeleton-1.0.21
+  directive. Do not run 1.2.0's `upgrade` on a non-cPanel host.
+
 ## [1.2.0] — 2026-09-15
 
 ### Added
