@@ -3,6 +3,16 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [0.6.2] — 2026-09-15
+
+### Fixed
+
+- **A failed install resumed as "already installed".** Adoption (a live Tiger with no ledger) ran
+  whenever the ledger was not marked installed — so our own ledger with a failed `theme` step, whose
+  tree probes as live by then, was adopted as complete and the remaining steps never ran (the site
+  500'd). Adoption now applies only when there is no ledger at all; an unfinished ledger resumes.
+  Found by TigerWHM's retry test (TIGER-133).
+
 ## [0.6.1] — 2026-09-15
 
 ### Added

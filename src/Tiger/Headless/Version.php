@@ -5,5 +5,5 @@
  */
 class Tiger_Headless_Version
 {
-    const VERSION = '0.6.1';
+    const VERSION = '0.6.2';
 }

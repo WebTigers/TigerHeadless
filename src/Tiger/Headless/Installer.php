@@ -51,7 +51,9 @@ class Tiger_Headless_Installer
         // A Tiger that is already live here — put down by the web installer, Composer, or a run of
         // this tool whose ledger is gone — is "already installed", not a half-install to finish.
         // Adopt it: write the ledger and report, exactly as a re-run after our own success would.
-        if (!$this->_state->installed()) {
+        // Only when there is NO ledger: our own ledger with a failed step is a half-install that
+        // probes as live (tree + local.ini + migrations + org exist by step 7) and must RESUME.
+        if (!$this->_state->exists()) {
             $live = Tiger_Headless_Detect::probe($this->_appRoot);
             if ($live['installed'] === true && strcasecmp($live['db']['name'], $this->_spec->get('db.name')) === 0) {
                 $this->_state->bind($this->_spec->fingerprint())->setVersion($live['version'])

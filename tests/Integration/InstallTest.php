@@ -249,6 +249,33 @@ final class InstallTest extends TestCase
         $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
     }
 
+    /**
+     * A failure AFTER the tree probes as live (step 9, theme: tree + local.ini + migrations + org all
+     * exist) must resume on retry — not be adopted as "already installed" with the rest never run.
+     * The exact shape TigerWHM's retry hit on host3 (TIGER-133).
+     */
+    public function testAFailureAfterTheTreeIsLiveResumesRatherThanAdopts(): void
+    {
+        $spec = $this->spec('late', ['theme' => 'theme-does-not-exist']);
+        [$exit, $r] = $this->cli($spec);
+        $this->assertSame(1, $exit, json_encode($r));
+        $this->assertSame('theme', $r['error']['step']);
+        $steps = array_column($r['steps'], 'status', 'step');
+        $this->assertSame('ok', $steps['owner'], 'the org and owner exist — the tree now probes as live');
+        $this->assertTrue(Tiger_Headless_Detect::probe($spec['paths']['app_root'])['installed'], 'precondition: probe says live');
+
+        $spec['theme'] = '';
+        [$exit, $r] = $this->cli($spec);
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertFalse($r['already_installed'], 'resumed, not adopted');
+        $this->assertArrayNotHasKey('adopted', $r);
+        $steps = array_column($r['steps'], 'status', 'step');
+        $this->assertSame('ok', $steps['theme']);
+        $this->assertSame('ok', $steps['expose'], 'the steps after the failure ran');
+        $this->assertFileExists($spec['paths']['docroot'] . '/index.php');
+        $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
+    }
+
     public function testInvalidSpecExitsTwoWithoutTouchingTheHost(): void
     {
         $spec = $this->spec('badspec', ['paths' => ['docroot' => self::$home . '/badspec/badspec.test/tiger-app/public']]);
