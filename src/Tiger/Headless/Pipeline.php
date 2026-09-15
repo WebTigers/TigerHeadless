@@ -80,13 +80,13 @@ class Tiger_Headless_Pipeline
                 $detail = (string) call_user_func($step['fn']);
             } catch (Throwable $e) {
                 $msg = $e->getMessage();
-                $state->markStep($name, 'failed', $msg)->save();
+                $state->markStep($name, 'failed', $msg, microtime(true) - $t0)->save();
                 $result->step($name, 'failed', $msg, microtime(true) - $t0);
                 $result->fail($name, $msg);
                 $this->_log("x {$name}: {$msg}");
                 return $result;
             }
-            $state->markStep($name, 'ok', $detail)->save();
+            $state->markStep($name, 'ok', $detail, microtime(true) - $t0)->save();
             $result->step($name, 'ok', $detail, microtime(true) - $t0);
             $this->_log("+ {$name}" . ($detail !== '' ? ": {$detail}" : ''));
             if ($until !== null && $name === $until && isset($names[$i + 1])) {

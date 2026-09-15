@@ -45,9 +45,10 @@ class Tiger_Headless_State
     public function setVersion($v)         { $this->_data['version'] = (string) $v; return $this; }
     public function setLayout($l)          { $this->_data['layout']  = (string) $l; return $this; }
 
-    public function markStep($name, $status, $detail = '')
+    public function markStep($name, $status, $detail = '', $seconds = null)
     {
-        $this->_data['steps'][$name] = ['status' => $status, 'detail' => (string) $detail, 'at' => gmdate('c')];
+        $this->_data['steps'][$name] = ['status' => $status, 'detail' => (string) $detail, 'at' => gmdate('c')]
+            + ($seconds !== null ? ['seconds' => round((float) $seconds, 2)] : []);
         return $this;
     }
 

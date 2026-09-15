@@ -143,6 +143,7 @@ final class PipelineTest extends TestCase
         $this->assertFalse($r->toArray()['complete']);
         $this->assertSame('b', $r->toArray()['next_step']);
         $this->assertFalse((new Tiger_Headless_State($this->root))->installed(), 'not installed after a partial run');
+        $this->assertArrayHasKey('seconds', (new Tiger_Headless_State($this->root))->steps()['a'], 'the ledger keeps the step time');
 
         $r = $this->pipeline($calls)->run('fp1', 'b');
         $this->assertSame(['a', 'b'], $calls, 'a was skipped as done, b ran');

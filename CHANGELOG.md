@@ -3,6 +3,12 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.2.2] — 2026-09-15
+
+### Added
+
+- The ledger records each step's `seconds`, so a front-end that runs one step per request can show every step's time, not only this request's.
+
 ## [1.2.1] — 2026-09-15
 
 ### Fixed
