@@ -9,7 +9,7 @@
  *
  *   tiger-headless install  --spec=<file|->            [--verbose] [--until=<step>]
  *   tiger-headless check    --spec=<file|->            (requirements only; changes nothing)
- *   tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
+ *   tiger-headless upgrade  --app-root=<dir> [--version=<tag>] [--docroot=<dir>]
  *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
  *   tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=...]
  *   tiger-headless status   --app-root=<dir>
@@ -86,7 +86,7 @@ switch ($verb) {
         // no break
 
     case 'upgrade':
-        $emit(Tiger_Headless_Verbs::upgrade($need('app-root'), (string) ($flags['version'] ?? '')));
+        $emit(Tiger_Headless_Verbs::upgrade($need('app-root'), (string) ($flags['version'] ?? ''), (string) ($flags['docroot'] ?? '')));
         // no break
 
     case 'backup':

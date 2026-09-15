@@ -3,6 +3,18 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.2.0] — 2026-09-15
+
+### Added
+
+- **Authorization pass-through in the docroot `.htaccess`.** Apache drops the `Authorization`
+  header for CGI/FastCGI/PHP-FPM, so Bearer tokens never reached `/mcp` or `/api` on shared hosts
+  (tiger-core 1.8.1, skeleton 1.0.21). `Installer::ensureAuthPassthrough()` prepends
+  `CGIPassAuth On` (mod_version-guarded) + a rewrite-env fallback, idempotently; `expose` runs it
+  for bundles that predate the fix, and **`upgrade --docroot=<dir>`** brings an existing site's
+  docroot up to date (the docroot layout needs no flag: `public/.htaccess`). Runs even when the
+  core is already current.
+
 ## [1.1.1] — 2026-09-15
 
 ### Fixed

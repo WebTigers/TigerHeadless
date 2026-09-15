@@ -460,8 +460,9 @@ class Tiger_Headless_Installer
         if (!Tiger_Headless_Files::writeAtomic($this->_docroot . '/index.php', $shim, 0644)) {
             throw new RuntimeException('Could not write ' . $this->_docroot . '/index.php');
         }
-        $how = self::mergeHtaccess($this->_appRoot . '/public/.htaccess', $this->_docroot . '/.htaccess');
-        return 'front controller written to ' . $this->_docroot . '/index.php' . ($how !== '' ? "; .htaccess {$how}" : '');
+        $how  = self::mergeHtaccess($this->_appRoot . '/public/.htaccess', $this->_docroot . '/.htaccess');
+        $auth = self::ensureAuthPassthrough($this->_docroot . '/.htaccess');   // bundles before skeleton 1.0.21 lack it
+        return 'front controller written to ' . $this->_docroot . '/index.php' . ($how !== '' ? "; .htaccess {$how}" : '') . ($auth === 'added' ? ' (+ Authorization pass-through)' : '');
     }
 
     // ---------------------------------------------------------------------------------- helpers
@@ -488,6 +489,30 @@ class Tiger_Headless_Installer
         if (strpos($existing, self::HTACCESS_MARK) !== false || strpos($existing, 'Tiger_Application') !== false) { return 'already merged'; }
         $merged = rtrim($existing, "\n") . "\n\n" . self::HTACCESS_MARK . "\n" . $rules . (substr($rules, -1) === "\n" ? '' : "\n");
         return Tiger_Headless_Files::writeAtomic($docrootFile, $merged, 0644) ? 'merged' : '';
+    }
+
+    const AUTH_MARK = '# --- Tiger: pass the Authorization header to PHP (tiger-headless) ---';
+
+    /**
+     * Make sure a docroot's .htaccess passes the Authorization header through to PHP. Apache drops
+     * it for CGI/FastCGI/PHP-FPM, and every Bearer-token path in Tiger (/api tokens, /mcp for agents)
+     * silently degrades to a guest without it. The skeleton's public/.htaccess carries this from
+     * 1.0.21; this puts it into docroots written by earlier bundles, at upgrade time. PREPENDED: the
+     * rewrite fallback must run before a front-controller rule ends processing with [L]; CGIPassAuth
+     * is a directive and does not care. Idempotent.
+     *
+     * @return string 'added' | 'present' | '' (no such file — nothing to route through)
+     */
+    public static function ensureAuthPassthrough($htaccess)
+    {
+        if (!is_file($htaccess)) { return ''; }
+        $existing = (string) file_get_contents($htaccess);
+        if (strpos($existing, 'CGIPassAuth') !== false || strpos($existing, self::AUTH_MARK) !== false) { return 'present'; }
+        $block = self::AUTH_MARK . "\n"
+            . "<IfModule mod_version.c>\n    <IfVersion >= 2.4.13>\n        CGIPassAuth On\n    </IfVersion>\n</IfModule>\n"
+            . "<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteCond %{HTTP:Authorization} .\n    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n</IfModule>\n"
+            . "# --- end Tiger Authorization block ---\n\n";
+        return Tiger_Headless_Files::writeAtomic($htaccess, $block . $existing, 0644) ? 'added' : '';
     }
 
     /** Create a directory (recursively) or say precisely why it cannot be. '' when fine. */

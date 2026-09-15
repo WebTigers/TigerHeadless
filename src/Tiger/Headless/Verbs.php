@@ -82,11 +82,23 @@ class Tiger_Headless_Verbs
      * Move tiger-core to a release (default: latest) using the same swap the admin "Update core"
      * button runs — backup, verify, swap vendor/, migrate, republish.
      */
-    public static function upgrade($appRoot, $version = '')
+    /**
+     * @param string $appRoot
+     * @param string $version  a tiger-core release tag; '' = latest
+     * @param string $docroot  the site's document root (above-docroot layout) so its .htaccess can be
+     *                         kept current; '' = the app's own public/ when that is the docroot
+     */
+    public static function upgrade($appRoot, $version = '', $docroot = '')
     {
         $r = new Tiger_Headless_Result('upgrade');
         $appRoot = rtrim((string) $appRoot, '/');
         try {
+            // The docroot .htaccess is not part of the vendor swap, so what a newer bundle would have
+            // written must be brought to an existing site here. Runs even when already current.
+            $ht = ($docroot !== '' ? rtrim((string) $docroot, '/') : $appRoot . '/public') . '/.htaccess';
+            $auth = Tiger_Headless_Installer::ensureAuthPassthrough($ht);
+            if ($auth !== '') { $r->step('htaccess', 'ok', 'Authorization pass-through ' . $auth . ' in ' . $ht); }
+
             Tiger_Headless_App::boot($appRoot);
             $from = Tiger_Headless_App::version($appRoot);
             $target = $version !== '' ? $version : (string) Tiger_Module_Github::latestRef('WebTigers', 'tiger-core');

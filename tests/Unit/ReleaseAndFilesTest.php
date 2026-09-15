@@ -163,4 +163,24 @@ final class ReleaseAndFilesTest extends TestCase
         $this->assertNull(Tiger_Headless_Http::githubSha('../x', 'main'));
         $this->assertNull(Tiger_Headless_Http::githubSha('WebTigers/Skills', 'ref with spaces'));
     }
+
+    /** The Authorization pass-through: prepended once, never twice, never into a file that is not there. */
+    public function testEnsureAuthPassthroughIsPrependedOnceAndBeforeAnyLRule(): void
+    {
+        $dir = sys_get_temp_dir() . '/tiger-headless-ht-' . bin2hex(random_bytes(4)); mkdir($dir);
+        $f = $dir . '/.htaccess';
+        $this->assertSame('', Tiger_Headless_Installer::ensureAuthPassthrough($f), 'no file, nothing to do');
+        file_put_contents($f, "# cPanel handler\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule ^.*$ index.php [NC,L]\n</IfModule>\n");
+        $this->assertSame('added', Tiger_Headless_Installer::ensureAuthPassthrough($f));
+        $s = (string) file_get_contents($f);
+        $this->assertStringContainsString('CGIPassAuth On', $s);
+        $this->assertLessThan(strpos($s, 'index.php [NC,L]'), strpos($s, 'E=HTTP_AUTHORIZATION'), 'the env rule runs BEFORE the front controller ends processing');
+        $this->assertStringEndsWith("index.php [NC,L]\n</IfModule>\n", $s, 'the existing rules are untouched');
+        $this->assertSame('present', Tiger_Headless_Installer::ensureAuthPassthrough($f));
+        $this->assertSame(1, substr_count((string) file_get_contents($f), 'CGIPassAuth'), 'idempotent');
+        // a file that already carries the skeleton's own directive is left alone
+        file_put_contents($f, "<IfVersion >= 2.4.13>\nCGIPassAuth On\n</IfVersion>\n");
+        $this->assertSame('present', Tiger_Headless_Installer::ensureAuthPassthrough($f));
+        Tiger_Headless_Files::rrmdir($dir);
+    }
 }

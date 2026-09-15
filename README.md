@@ -8,7 +8,7 @@ provisioning script calls when there is nobody at a browser — the install auth
 ```
 tiger-headless install  --spec=<file|->  [--verbose] [--until=<step>]   (stop after a step; the ledger resumes)
 tiger-headless check    --spec=<file|->  (requirements only — changes nothing)
-tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
+tiger-headless upgrade  --app-root=<dir> [--version=<tag>] [--docroot=<dir>]
 tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
 tiger-headless restore  --app-root=<dir> --archive=<zip> [--components=…]
 tiger-headless status   --app-root=<dir>
