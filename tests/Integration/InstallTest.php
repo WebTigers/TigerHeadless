@@ -256,6 +256,7 @@ final class InstallTest extends TestCase
      */
     public function testAFailureAfterTheTreeIsLiveResumesRatherThanAdopts(): void
     {
+        self::resetDb();
         $spec = $this->spec('late', ['theme' => 'theme-does-not-exist']);
         [$exit, $r] = $this->cli($spec);
         $this->assertSame(1, $exit, json_encode($r));
