@@ -510,7 +510,7 @@ class Tiger_Headless_Installer
         $existing = (string) file_get_contents($htaccess);
         $repaired = false;
         if (strpos($existing, 'CGIPassAuth') !== false) {
-            $existing = (string) preg_replace('#[ \t]*<IfModule mod_version\.c>\s*<IfVersion[^>]*>\s*CGIPassAuth On\s*</IfVersion>\s*</IfModule>[ \t]*\n?#', '', $existing);
+            $existing = (string) preg_replace('#[ \t]*<IfModule mod_version\.c>\s*<IfVersion\b[^\n]*>\s*CGIPassAuth On\s*</IfVersion>\s*</IfModule>[ \t]*\n?#', '', $existing);
             $existing = (string) preg_replace('#^[ \t]*CGIPassAuth\s+On[ \t]*\n?#m', '', $existing);   // a bare one, from anywhere else
             $repaired = true;
         }
