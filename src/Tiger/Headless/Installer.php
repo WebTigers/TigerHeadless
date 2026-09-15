@@ -344,20 +344,25 @@ class Tiger_Headless_Installer
         if (!class_exists('Tiger_Agent_Skills') || !method_exists('Tiger_Agent_Skills', 'install')) {
             return 'skipped: this core has no skills store (tiger-core ' . Tiger_Headless_App::version($this->_appRoot) . ')';
         }
-        $ok = []; $failed = [];
+        $ok = []; $failed = []; $sources = [];
         foreach ($skills as $e) {
             $name   = basename($e['path']);
             $source = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $e['repo']));
+            // A branch moves; a commit does not. Install at the sha when GitHub answers, so the site
+            // records exactly what it got (the ref is kept when the API is rate-limited or offline).
+            $sha = Tiger_Headless_Http::githubSha($e['repo'], $e['ref']);
+            $ref = $sha ?: $e['ref'];
             try {
-                $key = Tiger_Agent_Skills::install(['source' => $source, 'name' => $name, 'repo' => $e['repo'], 'ref' => $e['ref'], 'path' => $e['path'],
-                    'sourceLabel' => 'From github.com/' . $e['repo'], 'url' => 'https://github.com/' . $e['repo'] . '/tree/' . $e['ref'] . '/' . $e['path']]);
+                $key = Tiger_Agent_Skills::install(['source' => $source, 'name' => $name, 'repo' => $e['repo'], 'ref' => $ref, 'path' => $e['path'],
+                    'sourceLabel' => 'From github.com/' . $e['repo'], 'url' => 'https://github.com/' . $e['repo'] . '/tree/' . $ref . '/' . $e['path']]);
                 Tiger_Agent_Skills::setActive($key, true);
                 $ok[] = $name;
+                $sources[] = ['name' => $name, 'repo' => $e['repo'], 'path' => $e['path'], 'ref' => $e['ref'], 'commit' => $sha];
             } catch (Throwable $ex) {
                 $failed[] = $name . ' (' . $ex->getMessage() . ')';
             }
         }
-        $this->_extra['skills'] = ['installed' => $ok, 'failed' => $failed];
+        $this->_extra['skills'] = ['installed' => $ok, 'failed' => $failed, 'sources' => $sources];
         return count($ok) . ' installed' . ($failed ? '; failed: ' . implode(', ', $failed) : '') . ($ok ? ' — ' . implode(', ', $ok) : '');
     }
 

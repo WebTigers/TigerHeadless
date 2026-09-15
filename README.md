@@ -35,7 +35,7 @@ Given a pre-created database, an app root, a docroot, a site URL and an admin:
 | `owner` | the founding org + admin (`Tiger_Install::createOwner()` — Tiger's password policy applies) |
 | `modules` | each requested Directory slug installed through `Tiger_Module_Installer` and activated |
 | `theme` | the requested theme installed and made active (`Tiger_Theme::activate()`) |
-| `skills` | each requested Agent Skill fetched into Tiger's skills store and activated (`Tiger_Agent_Skills`) |
+| `skills` | each requested Agent Skill fetched into Tiger's skills store at its resolved commit and activated (`Tiger_Agent_Skills`); the result's `skills.sources` lists `{name, repo, path, ref, commit}` |
 | `assets` | docroot asset links — **copied where `symlink()` is disabled** |
 | `agent` | optional: an MCP credential for the owner + `/mcp` switched on |
 | `expose` | the docroot front-controller shim — **written last**, so a half-finished install is never web-reachable |

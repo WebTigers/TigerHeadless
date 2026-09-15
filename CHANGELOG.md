@@ -3,7 +3,18 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
-## [Unreleased]
+## [0.6.1] — 2026-09-15
+
+### Added
+
+- `Tiger_Headless_Http::get()` takes a **timeout budget** (total; connect = a third, ≥ 3 s). Front-ends
+  rendering a page pass a small one so a blackholed GitHub cannot stall a panel; the default (120 s)
+  is unchanged for the CLI and release downloads.
+- `Tiger_Headless_Http::githubSha()` resolves a branch/tag to its commit, best effort.
+- **Skills install at the resolved commit.** A branch moves, a commit does not: each skill is fetched
+  at the sha GitHub reports for its ref (falls back to the ref when the API is rate-limited or offline),
+  and the result's `skills.sources` records `{name, repo, path, ref, commit}` — the immutable identity
+  of what the site actually got.
 
 ## [0.6.0] — 2026-09-14
 

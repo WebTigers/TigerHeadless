@@ -143,4 +143,24 @@ final class ReleaseAndFilesTest extends TestCase
         $this->assertFalse(Tiger_Headless_Files::under('/a/bc', '/a/b'));
         $this->assertFalse(Tiger_Headless_Files::under('/a', '/a/b'));
     }
+
+    /** A metadata fetch must give up inside its budget; a hung host must not become a hung page (TIGER-135). */
+    public function testHttpGetHonoursASmallTimeoutBudget(): void
+    {
+        $t = microtime(true);
+        [$body, $code] = Tiger_Headless_Http::get('https://10.255.255.1/catalog.json', 'application/json', 3);
+        $took = microtime(true) - $t;
+        $this->assertNull($body);
+        $this->assertSame(0, $code);
+        $this->assertLessThan(6.0, $took, "took {$took}s against a 3s budget");
+    }
+
+    /** A sha passes through untouched; junk never reaches the network (TIGER-136). */
+    public function testGithubShaPassesShasThroughAndRefusesJunk(): void
+    {
+        $sha = str_repeat('ab', 20);
+        $this->assertSame($sha, Tiger_Headless_Http::githubSha('WebTigers/Skills', $sha));
+        $this->assertNull(Tiger_Headless_Http::githubSha('../x', 'main'));
+        $this->assertNull(Tiger_Headless_Http::githubSha('WebTigers/Skills', 'ref with spaces'));
+    }
 }
