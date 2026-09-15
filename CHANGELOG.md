@@ -3,6 +3,16 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.1.1] — 2026-09-15
+
+### Fixed
+
+- **`agent` failed on a resume** with `Specified column "id" is not in the row`: the owner lookup for
+  a run that did not itself create the owner read `id` (the column is `user_id`) and `org_id` off
+  the user row (it lives on the membership). Never showed when all steps share one process; the
+  web installer's hop-per-request shape hit it on the first try. The integration test's hop install
+  now requests the agent so the lookup path is exercised.
+
 ## [1.1.0] — 2026-09-15
 
 ### Added

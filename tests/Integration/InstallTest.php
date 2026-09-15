@@ -281,7 +281,7 @@ final class InstallTest extends TestCase
     public function testAnInstallInHopsWithUntilArrivesAtTheSamePlace(): void
     {
         self::resetDb();
-        $spec = $this->spec('hops');
+        $spec = $this->spec('hops', ['agent' => true]);   // agent runs in a hop that did not create the owner
         [$exit, $r] = $this->cli($spec, 'extract');
         $this->assertSame(0, $exit, json_encode($r));
         $this->assertFalse($r['complete']); $this->assertSame('configure', $r['next_step']);
@@ -295,6 +295,7 @@ final class InstallTest extends TestCase
         $this->assertSame(0, $exit, json_encode($r));
         $this->assertTrue($r['complete']);
         $this->assertSame($spec['site']['url'] . '/admin', $r['admin_url']);
+        $this->assertStringStartsWith('tgr_', $r['agent']['token'], 'the agent credential was minted by a process that never saw the owner row');
         $this->assertFileExists($spec['paths']['docroot'] . '/index.php');
         $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
         // and a fourth call is the ordinary "already installed"

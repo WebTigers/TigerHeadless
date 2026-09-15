@@ -427,10 +427,13 @@ class Tiger_Headless_Installer
         $userId = is_array($this->_owner) ? ($this->_owner['user_id'] ?? null) : null;
         $orgId  = is_array($this->_owner) ? ($this->_owner['org_id']  ?? null) : null;
         if ($userId === null) {
-            // A resume that skipped `owner` has no owner row in hand; look it up by email.
+            // A resume (or a later hop in another process) that skipped `owner` has no owner row in
+            // hand; look it up by email. The user's key is user_id; the org comes from its membership.
             $u = (new Tiger_Model_User())->findByEmail($this->_spec->get('admin.email'));
-            $userId = $u ? $u['id'] : null;
-            $orgId  = $u ? ($u['org_id'] ?? null) : null;
+            $userId = $u ? (string) $u['user_id'] : null;
+            if ($userId !== null) {
+                foreach ((new Tiger_Model_OrgUser())->orgsForUser($userId) as $m) { $orgId = (string) $m['org_id']; break; }
+            }
         }
         if ($userId === null) { throw new RuntimeException('No owner to bind the agent credential to.'); }
         $cred = (new Tiger_Model_UserCredential())->createToken($userId);
