@@ -3,6 +3,13 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.0.0] — 2026-09-15
+
+First stable release. Same code as 0.6.2 — the version says the contract is settled: the spec
+(SPEC.md), the verbs, the JSON result and exit codes, the ledger and its resume/adopt rules. Proven
+under TigerWHM 1.0.1 on a live cPanel server (noshell accounts, MySQL 8, symlink off, split docroots,
+failed-then-resumed installs) and on the MariaDB/MySQL × symlink CI matrix.
+
 ## [0.6.2] — 2026-09-15
 
 ### Fixed
