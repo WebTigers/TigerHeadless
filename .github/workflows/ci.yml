@@ -86,8 +86,15 @@ jobs:
       - name: Resolve the latest Tiger bundle
         id: bundle
         run: |
-          json=$(curl -sS -A tiger-headless-ci -H 'Accept: application/vnd.github+json' \
-                 https://api.github.com/repos/WebTigers/Tiger/releases?per_page=10)
+          # Authenticated (5,000/h) so four matrix legs never trip the anonymous 60/h limit; and a
+          # non-list reply (rate limit, outage) is retried, not parsed as a release list.
+          for attempt in 1 2 3 4 5; do
+            json=$(curl -sS -A tiger-headless-ci -H 'Accept: application/vnd.github+json' \
+                   -H "Authorization: Bearer ${{ github.token }}" \
+                   https://api.github.com/repos/WebTigers/Tiger/releases?per_page=10)
+            printf '%s' "$json" | python3 -c 'import sys,json; sys.exit(0 if isinstance(json.load(sys.stdin), list) else 1)' && break
+            echo "GitHub did not return a release list (attempt $attempt): $(printf '%s' "$json" | head -c 200)"; sleep $((attempt * 15))
+          done
           url=$(printf '%s' "$json" | python3 -c '
           import sys, json, re
           for r in json.load(sys.stdin):
