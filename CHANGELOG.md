@@ -3,6 +3,21 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.1.0] — 2026-09-15
+
+### Added
+
+- **`install --until=<step>`** / `Tiger_Headless_Installer::run($until)` — run the pending steps up
+  to and including one, then stop: the result is ok with `complete: false` and `next_step`; the ledger
+  carries progress, so the next call continues. For a front-end that must keep each web request
+  short (the one-file web installer on shared hosting). `complete: true` + `admin_url` only on the
+  run that finishes.
+- **`Tiger_Headless_Installer::hostRequirements()`** — the host-side requirement rows (PHP,
+  extensions, transport, writable app root / docroot, symlink) as `{key, label, ok, required, detail,
+  fix}`, before there is a database to test. `stepRequirements()` enforces the same list, so a screen
+  built from it never passes a host the step later refuses.
+- `Tiger_Headless_Installer::STEPS` — the step names in order, for progress lists.
+
 ## [1.0.0] — 2026-09-15
 
 First stable release. Same code as 0.6.2 — the version says the contract is settled: the spec

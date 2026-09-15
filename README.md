@@ -6,7 +6,7 @@ provisioning script calls when there is nobody at a browser — the install auth
 [web installer](https://github.com/WebTigers/TigerInstall) is the human face of.
 
 ```
-tiger-headless install  --spec=<file|->  [--verbose]
+tiger-headless install  --spec=<file|->  [--verbose] [--until=<step>]   (stop after a step; the ledger resumes)
 tiger-headless check    --spec=<file|->  (requirements only — changes nothing)
 tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
 tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]

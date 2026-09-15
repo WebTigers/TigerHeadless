@@ -132,4 +132,51 @@ final class PipelineTest extends TestCase
         }
         $this->assertSame('install', $j['verb']);
     }
+
+    /** A front-end keeping web requests short runs a few steps per call; the ledger carries the rest. */
+    public function testUntilStopsAfterTheNamedStepAndTheNextCallContinues(): void
+    {
+        $calls = [];
+        $r = $this->pipeline($calls)->run('fp1', 'a');
+        $this->assertTrue($r->ok());
+        $this->assertSame(['a'], $calls);
+        $this->assertFalse($r->toArray()['complete']);
+        $this->assertSame('b', $r->toArray()['next_step']);
+        $this->assertFalse((new Tiger_Headless_State($this->root))->installed(), 'not installed after a partial run');
+
+        $r = $this->pipeline($calls)->run('fp1', 'b');
+        $this->assertSame(['a', 'b'], $calls, 'a was skipped as done, b ran');
+        $this->assertSame('c', $r->toArray()['next_step']);
+        $this->assertSame('skipped', array_column($r->toArray()['steps'], 'status', 'step')['a']);
+
+        $r = $this->pipeline($calls)->run('fp1', 'c');
+        $this->assertTrue($r->toArray()['complete'], 'until = the last step completes the install');
+        $this->assertArrayNotHasKey('next_step', $r->toArray());
+        $this->assertTrue((new Tiger_Headless_State($this->root))->installed());
+
+    }
+
+    public function testAnUnknownUntilIsRefusedBeforeAnythingRuns(): void
+    {
+        $calls = [];
+        $r = $this->pipeline($calls)->run('fp1', 'nope');
+        $this->assertFalse($r->ok());
+        $this->assertSame('until', $r->error()['step']);
+        $this->assertSame([], $calls);
+    }
+
+    /** The host list is what the requirements step enforces — same rows, each with its fix. */
+    public function testHostRequirementsListsEveryRowWithAFix(): void
+    {
+        $rows = Tiger_Headless_Installer::hostRequirements($this->root . '/site/tiger-app', $this->root . '/public_html');
+        $keys = array_column($rows, 'key');
+        foreach (['php', 'pdo_mysql', 'zip', 'http', 'app_root', 'docroot', 'symlink'] as $k) { $this->assertContains($k, $keys); }
+        foreach ($rows as $r) { $this->assertNotSame('', $r['fix'], $r['key'] . ' names its fix'); $this->assertIsBool($r['required']); }
+        $this->assertTrue(array_column($rows, 'ok', 'key')['app_root'], 'a creatable path under a writable root passes');
+        $this->assertFalse(array_column($rows, 'required', 'key')['symlink'], 'symlink is advisory');
+        $bad = Tiger_Headless_Installer::hostRequirements('/proc/nope/tiger-app', $this->root . '/public_html');
+        $this->assertFalse(array_column($bad, 'ok', 'key')['app_root']);
+        $this->assertStringContainsString('app_root', array_column($bad, 'detail', 'key')['app_root']);
+        $this->assertArrayNotHasKey('docroot', array_column(Tiger_Headless_Installer::hostRequirements($this->root . '/a', $this->root . '/a/public', 'docroot'), 'ok', 'key'), 'docroot layout has no separate docroot row');
+    }
 }

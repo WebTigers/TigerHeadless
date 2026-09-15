@@ -82,12 +82,12 @@ final class InstallTest extends TestCase
     }
 
     /** Run the CLI; return [exit, decoded json, raw stdout]. */
-    private function cli(array $spec): array
+    private function cli(array $spec, string $until = ''): array
     {
         $file = tempnam(sys_get_temp_dir(), 'spec');
         file_put_contents($file, json_encode($spec));
         $php = PHP_BINARY . (self::$symlinkOff ? ' -d disable_functions=symlink' : '');
-        $cmd = $php . ' ' . escapeshellarg(__DIR__ . '/../../bin/tiger-headless') . ' install --spec=' . escapeshellarg($file) . ' 2>' . escapeshellarg($file . '.err');
+        $cmd = $php . ' ' . escapeshellarg(__DIR__ . '/../../bin/tiger-headless') . ' install --spec=' . escapeshellarg($file) . ($until !== '' ? ' --until=' . escapeshellarg($until) : '') . ' 2>' . escapeshellarg($file . '.err');
         exec($cmd, $lines, $exit);
         $raw = implode("\n", $lines);
         @unlink($file); @unlink($file . '.err');
@@ -275,6 +275,31 @@ final class InstallTest extends TestCase
         $this->assertSame('ok', $steps['expose'], 'the steps after the failure ran');
         $this->assertFileExists($spec['paths']['docroot'] . '/index.php');
         $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
+    }
+
+    /** The web installer's shape: a whole install in short hops, one --until per request (TIGER-127). */
+    public function testAnInstallInHopsWithUntilArrivesAtTheSamePlace(): void
+    {
+        self::resetDb();
+        $spec = $this->spec('hops');
+        [$exit, $r] = $this->cli($spec, 'extract');
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertFalse($r['complete']); $this->assertSame('configure', $r['next_step']);
+        $this->assertArrayNotHasKey('admin_url', $r, 'a partial run promises nothing');
+        $this->assertFileDoesNotExist($spec['paths']['docroot'] . '/index.php', 'nothing exposed yet');
+        [$exit, $r] = $this->cli($spec, 'owner');
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertSame('modules', $r['next_step']);
+        $this->assertSame('skipped', array_column($r['steps'], 'status', 'step')['fetch']);
+        [$exit, $r] = $this->cli($spec, 'expose');
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertTrue($r['complete']);
+        $this->assertSame($spec['site']['url'] . '/admin', $r['admin_url']);
+        $this->assertFileExists($spec['paths']['docroot'] . '/index.php');
+        $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
+        // and a fourth call is the ordinary "already installed"
+        [$exit, $r] = $this->cli($spec);
+        $this->assertTrue($r['already_installed']);
     }
 
     public function testInvalidSpecExitsTwoWithoutTouchingTheHost(): void

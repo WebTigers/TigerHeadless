@@ -41,10 +41,13 @@ class Tiger_Headless_Pipeline
     }
 
     /**
-     * @param  string $fingerprint the spec's fingerprint (see Tiger_Headless_Spec::fingerprint)
-     * @return Tiger_Headless_Result
+     * @param  string      $fingerprint the spec's fingerprint (see Tiger_Headless_Spec::fingerprint)
+     * @param  string|null $until       stop AFTER this step (a front-end that must keep each web
+     *                                  request short runs a few steps at a time; the ledger carries
+     *                                  progress between calls). null = run to the end.
+     * @return Tiger_Headless_Result    partial runs report ok with `complete` false and `next_step`
      */
-    public function run($fingerprint)
+    public function run($fingerprint, $until = null)
     {
         $result = new Tiger_Headless_Result('install');
         $state  = $this->_state;
@@ -59,8 +62,13 @@ class Tiger_Headless_Pipeline
             return $result;
         }
         $state->bind($fingerprint);
+        $names = array_column($this->_steps, 'name');
+        if ($until !== null && !in_array($until, $names, true)) {
+            $result->fail('until', 'unknown step "' . $until . '"; steps are ' . implode(', ', $names));
+            return $result;
+        }
 
-        foreach ($this->_steps as $step) {
+        foreach ($this->_steps as $i => $step) {
             $name = $step['name'];
             if (!$step['always'] && $state->stepDone($name)) {
                 $result->step($name, 'skipped', 'completed on a previous run');
@@ -81,9 +89,15 @@ class Tiger_Headless_Pipeline
             $state->markStep($name, 'ok', $detail)->save();
             $result->step($name, 'ok', $detail, microtime(true) - $t0);
             $this->_log("+ {$name}" . ($detail !== '' ? ": {$detail}" : ''));
+            if ($until !== null && $name === $until && isset($names[$i + 1])) {
+                $result->set('complete', false)->set('next_step', $names[$i + 1]);
+                $this->_log("… stopped after {$name} (next: {$names[$i + 1]})");
+                return $result->succeed();
+            }
         }
 
         $state->markInstalled()->save();
+        $result->set('complete', true);
         $result->succeed();
         return $result;
     }

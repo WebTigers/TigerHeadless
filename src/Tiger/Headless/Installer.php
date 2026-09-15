@@ -46,7 +46,11 @@ class Tiger_Headless_Installer
     }
 
     /** @return Tiger_Headless_Result */
-    public function run()
+    /** The step names, in order — what a front-end shows as a progress list. */
+    const STEPS = ['requirements', 'fetch', 'extract', 'configure', 'migrate', 'storage', 'owner', 'modules', 'theme', 'skills', 'assets', 'agent', 'expose'];
+
+    /** @param string|null $until stop after this step (see Tiger_Headless_Pipeline::run) */
+    public function run($until = null)
     {
         // A Tiger that is already live here — put down by the web installer, Composer, or a run of
         // this tool whose ledger is gone — is "already installed", not a half-install to finish.
@@ -81,9 +85,9 @@ class Tiger_Headless_Installer
           ->add('agent',        [$this, 'stepAgent'])
           ->add('expose',       [$this, 'stepExpose']);
 
-        $result = $p->run($this->_spec->fingerprint());
+        $result = $p->run($this->_spec->fingerprint(), $until);
         $result->set('layout', $this->_spec->get('layout'));
-        if ($result->ok() && !$result->toArray()['already_installed']) {
+        if ($result->ok() && !$result->toArray()['already_installed'] && !empty($result->toArray()['complete'])) {
             $result->set('version', $this->_state->version());
             $result->set('admin_url', $this->_spec->get('site.url') . '/admin');
             $result->set('login', ['username' => $this->_spec->get('admin.username') ?: null, 'email' => $this->_spec->get('admin.email')]);
@@ -118,31 +122,54 @@ class Tiger_Headless_Installer
 
     // ------------------------------------------------------------------------------------ steps
 
+    /**
+     * What the HOST must provide, before there is a database to test — the rows a requirements
+     * screen shows, each with the fix. The same list stepRequirements() enforces, so a front-end
+     * that passes this screen is not refused a page later for something it could have shown here.
+     *
+     * @param  string $appRoot
+     * @param  string $docroot
+     * @param  string $layout       above-docroot | docroot
+     * @param  bool   $needDownload false when the caller supplies source.bundle
+     * @return array<int,array{key:string,label:string,ok:bool,required:bool,detail:string,fix:string}>
+     */
+    public static function hostRequirements($appRoot, $docroot, $layout = Tiger_Headless_Spec::LAYOUT_ABOVE, $needDownload = true)
+    {
+        $rows = [];
+        $add = static function ($key, $label, $ok, $required, $detail, $fix = '') use (&$rows) {
+            $rows[] = ['key' => $key, 'label' => $label, 'ok' => (bool) $ok, 'required' => (bool) $required, 'detail' => (string) $detail, 'fix' => (string) $fix];
+        };
+        $add('php', 'PHP 8.1+', version_compare(PHP_VERSION, '8.1.0', '>='), true, 'running PHP ' . PHP_VERSION,
+            'Set the PHP version in cPanel → MultiPHP Manager / Select PHP Version.');
+        foreach (['pdo_mysql' => 'MySQL database driver', 'mbstring' => 'UTF-8 text handling', 'json' => 'JSON'] as $ext => $what) {
+            $add($ext, $ext, extension_loaded($ext), true, $what, "Enable {$ext} in cPanel → Select PHP Version → Extensions.");
+        }
+        $add('zip', 'zip (ZipArchive)', class_exists('ZipArchive'), true, 'to extract the bundle', 'Enable the zip extension in cPanel → Select PHP Version → Extensions.');
+        $add('http', 'curl or allow_url_fopen', Tiger_Headless_Http::available(), $needDownload, 'to download the Tiger release',
+            'Enable curl, or upload the release zip by hand.');
+        $appP = self::_mkdirProblem($appRoot, 'app_root');
+        $add('app_root', 'Application folder writable', $appP === '', true, $appP !== '' ? $appP : $appRoot . ' — where the app is placed', 'PHP must run as your cPanel user (it does on modern hosts).');
+        if ($layout === Tiger_Headless_Spec::LAYOUT_ABOVE) {
+            $docP = self::_mkdirProblem($docroot, 'docroot');
+            $add('docroot', 'Document root writable', $docP === '', true, $docP !== '' ? $docP : $docroot . ' — for the shim + assets', 'Fix ownership/permissions on the document root.');
+        }
+        $add('symlink', 'symlink()', function_exists('symlink'), false,
+            function_exists('symlink') ? 'assets are linked, so an update is picked up automatically' : 'blocked here — assets will be copied instead; updates re-copy them',
+            'Optional. Ask your host to allow symlink() for leaner updates.');
+        return $rows;
+    }
+
     /** Everything the install needs, checked up front — including that the database accepts us. */
     public function stepRequirements()
     {
         $problems = [];
-        if (version_compare(PHP_VERSION, '8.1.0', '<'))  { $problems[] = 'PHP 8.1+ required (running ' . PHP_VERSION . ')'; }
-        foreach (['pdo_mysql', 'mbstring', 'json'] as $ext) {
-            if (!extension_loaded($ext)) { $problems[] = "PHP extension {$ext} is not loaded"; }
-        }
-        if (!class_exists('ZipArchive'))                 { $problems[] = 'PHP extension zip (ZipArchive) is required to extract the bundle'; }
-        if ($this->_spec->get('source.bundle') === '' && !Tiger_Headless_Http::available()) {
-            $problems[] = 'neither curl nor allow_url_fopen is available to download the bundle (or pass source.bundle)';
+        foreach (self::hostRequirements($this->_appRoot, $this->_docroot, $this->_spec->get('layout'), $this->_spec->get('source.bundle') === '') as $r) {
+            if (!$r['ok'] && $r['required']) { $problems[] = $r['label'] . ': ' . $r['detail']; }
         }
         if ($this->_spec->get('source.bundle') !== '' && !is_file($this->_spec->get('source.bundle'))) {
             $problems[] = 'source.bundle does not exist: ' . $this->_spec->get('source.bundle');
         }
-
-        // Paths: both are created here, as many levels as needed — the cPanel convention is
-        // /home/<user>/<domain>/tiger-app and <domain>/ does not exist until the first install
-        // (CPANEL.md §7a). What must be writable is the nearest ancestor that already exists.
         $app = $this->_appRoot;
-        if ($p = self::_mkdirProblem($app, 'app_root')) { $problems[] = $p; }
-        $doc = $this->_docroot;
-        if ($this->_spec->get('layout') === Tiger_Headless_Spec::LAYOUT_ABOVE) {
-            if ($p = self::_mkdirProblem($doc, 'docroot')) { $problems[] = $p; }
-        }
 
         // An existing tree configured for a different database is somebody else's site.
         $ini = $app . '/application/configs/local.ini';

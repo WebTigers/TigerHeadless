@@ -7,7 +7,7 @@
  * tiger-headless — install, upgrade, back up, restore or inspect a Tiger site with nobody at a
  * browser. One spec in, one JSON document out, an honest exit code. No prompts, no HTML, no colour.
  *
- *   tiger-headless install  --spec=<file|->            [--verbose]
+ *   tiger-headless install  --spec=<file|->            [--verbose] [--until=<step>]
  *   tiger-headless check    --spec=<file|->            (requirements only; changes nothing)
  *   tiger-headless upgrade  --app-root=<dir> [--version=<tag>]
  *   tiger-headless backup   --app-root=<dir> [--components=database,media,modules,platform]
@@ -67,7 +67,7 @@ switch ($verb) {
             fwrite(STDOUT, $r->toJson());
             exit(Tiger_Headless_Result::EXIT_USAGE);
         }
-        $emit((new Tiger_Headless_Installer($spec, $log))->run());
+        $emit((new Tiger_Headless_Installer($spec, $log))->run(isset($flags['until']) && $flags['until'] !== '' ? $flags['until'] : null));
         // no break — exit() above
 
     case 'check':
