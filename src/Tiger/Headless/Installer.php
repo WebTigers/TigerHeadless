@@ -87,11 +87,13 @@ class Tiger_Headless_Installer
 
         $result = $p->run($this->_spec->fingerprint(), $until);
         $result->set('layout', $this->_spec->get('layout'));
+        // What the steps produced (the agent token, the skill sources) belongs to the run that ran them —
+        // a partial run included, or a front-end running one step per request never sees the token.
+        foreach ($this->_extra as $k => $v) { $result->set($k, $v); }
         if ($result->ok() && !$result->toArray()['already_installed'] && !empty($result->toArray()['complete'])) {
             $result->set('version', $this->_state->version());
             $result->set('admin_url', $this->_spec->get('site.url') . '/admin');
             $result->set('login', ['username' => $this->_spec->get('admin.username') ?: null, 'email' => $this->_spec->get('admin.email')]);
-            foreach ($this->_extra as $k => $v) { $result->set($k, $v); }
         }
         return $result;
     }

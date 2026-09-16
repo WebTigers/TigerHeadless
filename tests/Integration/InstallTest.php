@@ -291,11 +291,16 @@ final class InstallTest extends TestCase
         $this->assertSame(0, $exit, json_encode($r));
         $this->assertSame('modules', $r['next_step']);
         $this->assertSame('skipped', array_column($r['steps'], 'status', 'step')['fetch']);
+        [$exit, $r] = $this->cli($spec, 'agent');
+        $this->assertSame(0, $exit, json_encode($r));
+        $this->assertFalse($r['complete']);
+        $this->assertStringStartsWith('tgr_', $r['agent']['token'], 'the token rides on the PARTIAL run that minted it (a step-per-request front-end has no other chance to see it)');
+        $this->assertArrayNotHasKey('admin_url', $r);
         [$exit, $r] = $this->cli($spec, 'expose');
         $this->assertSame(0, $exit, json_encode($r));
         $this->assertTrue($r['complete']);
         $this->assertSame($spec['site']['url'] . '/admin', $r['admin_url']);
-        $this->assertStringStartsWith('tgr_', $r['agent']['token'], 'the agent credential was minted by a process that never saw the owner row');
+        $this->assertArrayNotHasKey('agent', $r, 'the final hop did not mint anything — the token is not re-shown');
         $this->assertFileExists($spec['paths']['docroot'] . '/index.php');
         $this->assertTrue((new Tiger_Headless_State($spec['paths']['app_root']))->installed());
         // and a fourth call is the ordinary "already installed"

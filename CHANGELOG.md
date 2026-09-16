@@ -3,6 +3,12 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.2.3] — 2026-09-16
+
+### Fixed
+
+- **A partial run (`--until`) dropped what its steps produced.** The agent token and the skill sources were copied onto the result only when the install completed, so a front-end running one step per request minted a credential and never received it (the web installer's finish screen said "not enabled" while /mcp was on). Extras now ride on every run's result. Integration test asserts the token arrives on the hop that mints it.
+
 ## [1.2.2] — 2026-09-15
 
 ### Added
