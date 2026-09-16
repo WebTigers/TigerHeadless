@@ -33,6 +33,17 @@ class Tiger_Headless_App
     {
         self::load($appRoot);
         if (!self::$_booted) {
+            // Booting Tiger starts a session. Inside a web request (the one-file installer) that must
+            // never be the VISITOR's session: the browser may carry a PHPSESSID from a previous site on
+            // this domain whose file this account cannot read (cPanel's shared session dir after an
+            // account is recreated) — session_start() then fails and the install dies at `migrate`.
+            // No cookies in, no cookie out: a private, throwaway session for the install's own boot.
+            if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
+                @ini_set('session.use_cookies', '0');
+                @ini_set('session.use_trans_sid', '0');
+                @ini_set('session.cache_limiter', '');
+                session_id(bin2hex(random_bytes(16)));
+            }
             (new Tiger_Application($appRoot))->boot();
             self::$_booted = true;
         }

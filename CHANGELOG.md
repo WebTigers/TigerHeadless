@@ -3,6 +3,12 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.2.4] — 2026-09-16
+
+### Fixed
+
+- **An install run inside a web request no longer touches the visitor's session.** Booting Tiger starts a session; the browser may carry a PHPSESSID from a previous site on the domain whose file this account cannot read (cPanel's shared session directory after an account is deleted and recreated), and `session_start()` failing killed the install at `migrate`. `App::boot()` now uses a private, cookie-less, throwaway session id in a non-CLI SAPI. (tiger-core 1.8.2 also survives such a cookie on the live site.)
+
 ## [1.2.3] — 2026-09-16
 
 ### Fixed
