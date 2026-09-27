@@ -78,6 +78,10 @@ final class InstallTest extends TestCase
             'site'   => ['url' => "https://{$site}.test", 'name' => ucfirst($site)],
             'admin'  => ['username' => 'owner', 'email' => "owner@{$site}.test", 'password' => 'Correct-Horse-Battery-9'],
             'source' => ['bundle' => self::$bundle, 'sha256' => hash_file('sha256', self::$bundle)],
+            // Opt the base matrix out of the default module stack (ComingSoon) — it fetches from the
+            // Directory (GitHub); network installs set their own `modules`. The default is unit-tested
+            // (SpecTest) and network-tested (testDefaultStackInstallsComingSoon).
+            'modules' => [],
         ], $over);
     }
 
@@ -376,6 +380,22 @@ final class InstallTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+/', $row['version']);
         // The deliberately broken 'badpw' tree (requirements failed, nothing extracted) is NOT an install.
         $this->assertArrayNotHasKey(self::$home . '/badpw/badpw.test/tiger-app', $byApp);
+    }
+
+    public function testDefaultStackInstallsComingSoon(): void
+    {
+        if (getenv('TIGER_HEADLESS_NETWORK') !== '1') { $this->markTestSkipped('TIGER_HEADLESS_NETWORK=1 to install from the Directory'); }
+        self::resetDb();
+        // No `modules` in the spec → the default stack (ComingSoon) is fetched from the Directory, installed
+        // and activated, so a fresh site has a holding page out of the box.
+        $spec = $this->spec('coming');
+        unset($spec['modules']);   // let the Spec default apply (the base helper opts out)
+        [$exit, $r] = $this->cli($spec);
+        $this->assertSame(0, $exit, json_encode($r));
+        $steps = array_column($r['steps'], 'detail', 'step');
+        $this->assertStringContainsString('comingsoon installed', $steps['modules']);
+        $pdo = self::pdo();
+        $this->assertSame('comingsoon', $pdo->query("SELECT slug FROM module WHERE active = 1 AND slug = 'comingsoon'")->fetchColumn());
     }
 
     public function testDirectoryModulesThemeAndAgentHandshake(): void

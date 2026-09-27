@@ -345,7 +345,13 @@ class Tiger_Headless_Installer
         Tiger_Headless_App::boot($this->_appRoot);
         $done = [];
         foreach ($slugs as $slug) {
-            $done[] = $slug . ' ' . $this->_installFromDirectory($slug);
+            // Best-effort: a module (e.g. the default ComingSoon holding page) is a nice-to-have, not a
+            // reason to fail a working install. A Directory/GitHub hiccup skips the module and moves on.
+            try {
+                $done[] = $slug . ' ' . $this->_installFromDirectory($slug);
+            } catch (\Throwable $e) {
+                $done[] = $slug . ' skipped (' . $e->getMessage() . ')';
+            }
         }
         return implode(', ', $done);
     }

@@ -26,7 +26,7 @@ final class SpecTest extends TestCase
         $this->assertSame('Tiger', $s['site']['name']);
         $this->assertSame('Tiger', $s['admin']['org'], 'org defaults to the site name');
         $this->assertSame('en', $s['locale']);
-        $this->assertSame([], $s['modules']);
+        $this->assertSame(Tiger_Headless_Spec::DEFAULT_MODULES, $s['modules'], 'unset modules → the default stack (ComingSoon)');
         $this->assertSame('', $s['theme']);
         $this->assertSame('https://example.com', $s['site']['url'], 'trailing slash trimmed');
         $this->assertFalse($s['agent']);
@@ -105,6 +105,20 @@ final class SpecTest extends TestCase
     {
         $s = new Tiger_Headless_Spec($this->valid(['modules' => [' Docs ', 'docs', '', 'tigershield']]));
         $this->assertSame(['docs', 'tigershield'], $s->get('modules'));
+    }
+
+    public function testExplicitModuleListReplacesTheDefaultStack(): void
+    {
+        // An explicit list is honoured verbatim — the default (ComingSoon) is NOT appended.
+        $s = new Tiger_Headless_Spec($this->valid(['modules' => ['docs']]));
+        $this->assertSame(['docs'], $s->get('modules'));
+    }
+
+    public function testEmptyModuleListOptsOutOfTheDefaultStack(): void
+    {
+        // An explicit empty list means "install no modules" — it overrides the ComingSoon default.
+        $s = new Tiger_Headless_Spec($this->valid(['modules' => []]));
+        $this->assertSame([], $s->get('modules'));
     }
 
     public function testFingerprintDependsOnlyOnDatabaseAndPaths(): void

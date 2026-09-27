@@ -14,6 +14,14 @@ class Tiger_Headless_Spec
     const LAYOUT_ABOVE   = 'above-docroot';
     const LAYOUT_DOCROOT = 'docroot';
 
+    /**
+     * The default module stack a fresh install gets when the spec doesn't name its own `modules`.
+     * ComingSoon so a just-provisioned site serves a branded holding page from the moment DNS resolves
+     * until the owner publishes real content (it steps aside automatically once a home/theme goes live).
+     * A caller opts out with an explicit `"modules": []`.
+     */
+    const DEFAULT_MODULES = ['comingsoon'];
+
     /** @var array the normalized spec */
     protected $_spec;
 
@@ -99,7 +107,8 @@ class Tiger_Headless_Spec
         if (!preg_match('/^[a-z]{2,3}$/', $locale)) { $errors[] = 'locale must be a language code like "en" or "es"'; }
         $out['locale'] = $locale;
 
-        $mods = $spec['modules'] ?? [];
+        // Unset `modules` → the default stack (ComingSoon); an explicit list (incl. `[]`) is honoured as-is.
+        $mods = array_key_exists('modules', $spec) && $spec['modules'] !== null ? $spec['modules'] : self::DEFAULT_MODULES;
         if (!is_array($mods)) { $errors[] = 'modules must be a list of Directory slugs'; $mods = []; }
         $out['modules'] = [];
         foreach ($mods as $m) {
