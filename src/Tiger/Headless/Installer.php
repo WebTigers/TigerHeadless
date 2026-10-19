@@ -47,7 +47,7 @@ class Tiger_Headless_Installer
 
     /** @return Tiger_Headless_Result */
     /** The step names, in order — what a front-end shows as a progress list. */
-    const STEPS = ['requirements', 'fetch', 'extract', 'configure', 'migrate', 'storage', 'owner', 'modules', 'theme', 'skills', 'assets', 'agent', 'expose'];
+    const STEPS = ['requirements', 'fetch', 'extract', 'configure', 'migrate', 'storage', 'owner', 'modules', 'theme', 'skills', 'assets', 'agent', 'autoupdate', 'expose'];
 
     /** @param string|null $until stop after this step (see Tiger_Headless_Pipeline::run) */
     public function run($until = null)
@@ -83,6 +83,7 @@ class Tiger_Headless_Installer
           ->add('skills',       [$this, 'stepSkills'])
           ->add('assets',       [$this, 'stepAssets'])
           ->add('agent',        [$this, 'stepAgent'])
+          ->add('autoupdate',   [$this, 'stepAutoupdate'])
           ->add('expose',       [$this, 'stepExpose']);
 
         $result = $p->run($this->_spec->fingerprint(), $until);
@@ -452,6 +453,38 @@ class Tiger_Headless_Installer
         (new Tiger_Model_Config())->set(Tiger_Model_Config::SCOPE_GLOBAL, '', Tiger_Mcp::CONFIG_ENABLED, '1');
         $this->_extra['agent'] = ['token' => $cred['token'], 'modules' => Tiger_Mcp_Token::DEFAULT_MODULES, 'endpoint' => $this->_spec->get('site.url') . '/mcp'];
         return 'credential minted, /mcp enabled';
+    }
+
+    /**
+     * Keep the new install current — enroll the platform + every installed module & skill into
+     * unattended auto-update, then apply once so the site is on the latest releases from minute one
+     * (a bundle's modules can trail their own latest, and a daily job keeps it current thereafter).
+     * Best-effort by design: a fresh, working install must never fail over a self-update, so an
+     * unreachable GitHub / an older core without the store is reported and skipped, never thrown. Runs
+     * in-process (Tiger_Application boot wires the module autoloaders), so it works on a no-shell host.
+     *
+     * @return string
+     */
+    public function stepAutoupdate()
+    {
+        Tiger_Headless_App::boot($this->_appRoot);
+        if (!class_exists('Tiger_Update_AutoUpdate')) {
+            return 'skipped: this core has no auto-update store (tiger-core ' . Tiger_Headless_App::version($this->_appRoot) . ')';
+        }
+        try {
+            $on = Tiger_Update_AutoUpdate::enableAll();
+        } catch (Throwable $e) {
+            return 'enroll skipped (' . $e->getMessage() . ')';
+        }
+        $applied = [];
+        if (class_exists('System_Service_Updates') && method_exists('System_Service_Updates', 'runScheduledAutoUpdates')) {
+            try {
+                foreach (System_Service_Updates::runScheduledAutoUpdates() as $res) {
+                    if (!empty($res['version'])) { $applied[] = ($res['slug'] ?? '?') . ' -> ' . $res['version']; }
+                }
+            } catch (Throwable $e) { /* best-effort; the daily system.update_check job retries */ }
+        }
+        return 'auto-update on for ' . count($on) . ' item(s)' . ($applied ? '; applied ' . implode(', ', $applied) : '; already current');
     }
 
     /** The docroot front controller — last, so nothing serves until everything else has passed. */
