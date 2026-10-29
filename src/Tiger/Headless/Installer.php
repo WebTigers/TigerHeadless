@@ -404,15 +404,25 @@ class Tiger_Headless_Installer
         return count($ok) . ' installed' . ($failed ? '; failed: ' . implode(', ', $failed) : '') . ($ok ? ' — ' . implode(', ', $ok) : '');
     }
 
-    /** Docroot asset links (copied where symlink() is unavailable) — above-docroot layout only. */
+    /**
+     * Publish the docroot asset dirs — `_tiger` (core's own public/) and `_theme` (the active theme's
+     * assets) — as symlinks, or as marked copies where `symlink()` is unavailable.
+     *
+     * BOTH layouts need this. The docroot layout used to call `republishAssets()` instead, which only
+     * REFRESHES an existing copy-mode publish and returns "nothing to do" when the dirs are absent —
+     * so on a fresh docroot-layout install nothing ever created them and the site served with no CSS
+     * and no JS at all (every `/_theme/*` and `/_tiger/*` a 404). `linkPublicAssets()` is correct for
+     * both: it computes its targets from $root and skips the `_modules` link when the docroot already
+     * IS `<root>/public`.
+     */
     public function stepAssets()
     {
         Tiger_Headless_App::boot($this->_appRoot);
-        if ($this->_spec->get('layout') === Tiger_Headless_Spec::LAYOUT_DOCROOT) {
-            Tiger_Install::republishAssets($this->_appRoot);
-            return 'docroot layout — assets published under public/';
+        $colocated = $this->_spec->get('layout') === Tiger_Headless_Spec::LAYOUT_DOCROOT;
+        Tiger_Install::linkPublicAssets($this->_docroot, $this->_appRoot, $this->_activeThemeKey());
+        if ($colocated) {
+            return Tiger_Install::assetsAreCopied($this->_docroot) ? 'assets copied' : 'assets linked';
         }
-        Tiger_Install::linkPublicAssets($this->_docroot, $this->_appRoot, 'puma');
         // Every `_*` Tiger publishes under public/ must be reachable from the docroot — the theme's
         // asset base (`_greymist`) above all. Core ≥ 1.7.1 mirrors them itself; do it here too so an
         // older bundle gets the same result. Link where allowed, else copy.
@@ -426,6 +436,30 @@ class Tiger_Headless_Installer
             else { Tiger_Headless_Files::rcopy($real, $link); $mode[] = "{$pub} copied"; }
         }
         return (Tiger_Install::assetsAreCopied($this->_docroot) ? 'assets copied' : 'assets linked') . ($mode ? ' (' . implode(', ', $mode) . ')' : '');
+    }
+
+    /**
+     * The key of the theme whose assets `_theme` points at: whatever the install actually activated,
+     * else the platform base theme. Hardcoding `puma` here published the WRONG assets for a spec that
+     * named its own theme.
+     *
+     * @return string
+     */
+    protected function _activeThemeKey()
+    {
+        if (!class_exists('Tiger_Theme')) { return 'puma'; }
+        try {
+            $active = Tiger_Theme::active();
+        } catch (Throwable $e) {
+            return 'puma';
+        }
+        // `_theme` is resolved against core's OWN themes/ dir, so only a bundled theme belongs here.
+        // A third-party theme publishes its own asset base (`_greymist`) in Tiger_Theme::activate();
+        // naming it here would just make linkPublicAssets() throw on a missing target and fail the
+        // install over a cosmetic detail.
+        if (!is_string($active) || $active === '') { return 'puma'; }
+        $dir = $this->_appRoot . '/vendor/webtigers/tiger-core/themes/' . preg_replace('/[^a-z0-9_-]/i', '', $active) . '/assets';
+        return is_dir($dir) ? $active : 'puma';
     }
 
     /** Optional TIGER-90 connect handshake: mint an agent credential + switch /mcp on. */

@@ -3,6 +3,13 @@
 All notable changes to **tiger-headless**. Format follows [Keep a Changelog](https://keepachangelog.com/);
 SemVer.
 
+## [1.4.1] — 2026-10-29
+
+### Fixed
+
+- **A `docroot`-layout install served no CSS and no JavaScript.** `stepAssets` published `_tiger` and `_theme` only on the `above-docroot` layout; the co-located layout called `republishAssets()`, which refreshes an EXISTING copy-mode publish and does nothing when the directories are absent — so a fresh install never created them and every `/_theme/*` and `/_tiger/*` returned 404. Both layouts now publish through `linkPublicAssets()`.
+- **`_theme` pointed at `puma` regardless of the theme installed.** The target is now the activated theme, falling back to the platform base theme when it is not one of core's own (a third-party theme publishes its own asset base in `Tiger_Theme::activate()`).
+
 ## [1.2.4] — 2026-09-16
 
 ### Fixed
